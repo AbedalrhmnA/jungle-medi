@@ -482,6 +482,26 @@
       room.child('device').set({ ua: navigator.userAgent, w: window.innerWidth, h: window.innerHeight,
         dpr: window.devicePixelRatio || 1, sw: 'serviceWorker' in navigator, t: TS }).catch(function(){});
     }catch(e){}
+    // how long each part of the start takes (to find what makes the start slow)
+    var tm = {};
+    function mark(k){ tm[k] = Math.round(performance.now()); }
+    try{ var nav = performance.getEntriesByType('navigation')[0]; if(nav) tm.html = Math.round(nav.responseEnd); }catch(e){}
+    document.addEventListener('DOMContentLoaded', function(){ mark('dom'); });
+    window.addEventListener('load', function(){ mark('load'); });
+    if(db) db.ref('.info/connected').on('value', function(s){ if(s.val() && !tm.firebase) mark('firebase'); });
+    var poll = setInterval(function(){
+      var j = window.__jungle;
+      if(j && j.parts && j.parts() > 0 && !tm.background) mark('background');
+      if(j && j.ready && j.ready()){
+        mark('ready'); clearInterval(poll);
+        try{
+          var res = performance.getEntriesByType('resource').map(function(r){ return { n: r.name.split('/').slice(-2).join('/').split('?')[0], ms: Math.round(r.duration), kb: Math.round((r.transferSize || 0) / 1024) }; })
+            .sort(function(a, b){ return b.ms - a.ms; }).slice(0, 12);
+          room.child('device/timing').set({ marks: tm, slowest: res, sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller), t: TS }).catch(function(){});
+        }catch(e){}
+      }
+      if(performance.now() > 120000) clearInterval(poll);
+    }, 200);
     var sent = 0;
     window.addEventListener('error', function(e){
       if(sent++ > 20) return;
