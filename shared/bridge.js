@@ -43,7 +43,7 @@
   var RealEventSource = window.EventSource;
 
   /* ---------------- Firebase ---------------- */
-  var db = null, room = null, timeOffset = 0;
+  var db = null, room = null, timeOffset = 0, initError = '';
   try{
     if(window.firebase && KEY.length >= 24){
       firebase.initializeApp(FIREBASE);
@@ -51,7 +51,7 @@
       room = db.ref('rooms/' + KEY);
       db.ref('.info/serverTimeOffset').on('value', function(s){ timeOffset = s.val() || 0; });
     }
-  }catch(e){ db = null; room = null; }
+  }catch(e){ db = null; room = null; initError = String(e && e.message || e); }
   var TS = (window.firebase && firebase.database) ? firebase.database.ServerValue.TIMESTAMP : 0;
   function serverNow(){ return Date.now() + timeOffset; }
 
@@ -376,8 +376,19 @@
   };
 
   /* ---------------- device report (helps fixing problems on the projector) ---------------- */
+  function restReport(why){
+    // Firebase library did not start: report straight to the database over plain HTTP
+    try{
+      var x = new XMLHttpRequest();
+      x.open('PUT', FIREBASE.databaseURL + '/rooms/' + KEY + '/device.json', true);
+      x.setRequestHeader('Content-Type', 'text/plain');
+      x.send(JSON.stringify({ ua: navigator.userAgent, why: why, fb: typeof window.firebase, keyLen: KEY.length,
+        w: window.innerWidth, h: window.innerHeight, t: Date.now() }));
+    }catch(e){}
+  }
   function report(){
-    if(!room || isPhone || !isReferee) return;
+    if(isPhone || !isReferee) return;
+    if(!room){ if(KEY.length >= 24) restReport(initError || 'no firebase'); return; }
     try{
       room.child('device').set({ ua: navigator.userAgent, w: window.innerWidth, h: window.innerHeight,
         dpr: window.devicePixelRatio || 1, sw: 'serviceWorker' in navigator, t: TS }).catch(function(){});
