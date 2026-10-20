@@ -375,6 +375,25 @@
     return es;
   };
 
+  /* ---------------- device report (helps fixing problems on the projector) ---------------- */
+  function report(){
+    if(!room || isPhone || !isReferee) return;
+    try{
+      room.child('device').set({ ua: navigator.userAgent, w: window.innerWidth, h: window.innerHeight,
+        dpr: window.devicePixelRatio || 1, sw: 'serviceWorker' in navigator, t: TS }).catch(function(){});
+    }catch(e){}
+    var sent = 0;
+    window.addEventListener('error', function(e){
+      if(sent++ > 20) return;
+      room.child('errors').push({ m: String(e.message || e.error || 'error').slice(0, 300), f: String(e.filename || '').slice(-80), l: e.lineno || 0, t: TS }).catch(function(){});
+    });
+    window.addEventListener('unhandledrejection', function(e){
+      if(sent++ > 20) return;
+      room.child('errors').push({ m: 'promise: ' + String(e.reason && (e.reason.message || e.reason)).slice(0, 300), t: TS }).catch(function(){});
+    });
+  }
+  report();
+
   /* ---------------- start ---------------- */
   if(isPhone) startPhone();
   else{
