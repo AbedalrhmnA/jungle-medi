@@ -2,7 +2,7 @@
  * media/*  : served from the saved copy (with byte ranges for video), network if not saved yet
  * the rest : network first, saved copy when the internet is down
  */
-var MEDIA = 'jungle-media-v1', SHELL = 'jungle-shell-v1', INDEX = '__index__';
+var MEDIA = 'jungle-media-v1', SHELL = 'jungle-shell-v2', INDEX = '__index__';
 var SCOPE = self.registration.scope;
 var busy = null;
 
@@ -42,11 +42,14 @@ function media(req, url){
 }
 
 function shell(req){
-  return fetch(req).then(function(res){
-    if(res.ok && res.type === 'basic'){ var copy = res.clone(); caches.open(SHELL).then(function(c){ c.put(key(new URL(req.url)), copy); }); }
-    return res;
-  }).catch(function(){
-    return caches.open(SHELL).then(function(c){ return c.match(key(new URL(req.url))); }).then(function(hit){ return hit || Response.error(); });
+  // saved copy first (instant start), fresh copy fetched in the background for next time
+  var k = key(new URL(req.url));
+  return caches.open(SHELL).then(function(c){
+    return c.match(k).then(function(hit){
+      var net = fetch(req).then(function(res){ if(res.ok && res.type === 'basic') c.put(k, res.clone()); return res; });
+      if(hit){ net.catch(function(){}); return hit; }
+      return net.catch(function(){ return Response.error(); });
+    });
   });
 }
 

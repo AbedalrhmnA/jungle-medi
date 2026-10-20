@@ -7,6 +7,180 @@
    "type": "image/svg+xml"
   },
   {
+   "path": "media/bake/bake.json",
+   "size": 16561,
+   "hash": "89a48633a7cf",
+   "type": "application/json"
+  },
+  {
+   "path": "media/bake/el0.webp",
+   "size": 22544,
+   "hash": "6d69b463726b",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el1.webp",
+   "size": 29368,
+   "hash": "e3ff523a86ef",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el10.webp",
+   "size": 29922,
+   "hash": "399fb35b298f",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el11.webp",
+   "size": 10340,
+   "hash": "87cd10776eeb",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el12.webp",
+   "size": 9796,
+   "hash": "60fd313c47e9",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el13.webp",
+   "size": 15486,
+   "hash": "ece9ba6abe2d",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el14.webp",
+   "size": 87952,
+   "hash": "39d88e9b76f7",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el15.webp",
+   "size": 52938,
+   "hash": "3b2505108230",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el16.webp",
+   "size": 14426,
+   "hash": "af4e05a9641b",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el17.webp",
+   "size": 94246,
+   "hash": "c869c76e139f",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el18.webp",
+   "size": 57966,
+   "hash": "31b2981fd5c7",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el2.webp",
+   "size": 41086,
+   "hash": "3853eeb729ef",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el3.webp",
+   "size": 14274,
+   "hash": "152786599398",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el4.webp",
+   "size": 34070,
+   "hash": "1ac58fb232bf",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el5.webp",
+   "size": 25630,
+   "hash": "555a7baf8723",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el6.webp",
+   "size": 54710,
+   "hash": "a1f79dfca20a",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el7.webp",
+   "size": 7066,
+   "hash": "f6534a9d8ec7",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el8.webp",
+   "size": 9382,
+   "hash": "fa1f189b03d9",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/el9.webp",
+   "size": 43560,
+   "hash": "cf867f4ea63d",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/meteor0.webp",
+   "size": 1922,
+   "hash": "7729b8688e3c",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/meteor1.webp",
+   "size": 1854,
+   "hash": "22662525a11a",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/meteor2.webp",
+   "size": 2362,
+   "hash": "f8c61befbd53",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/meteor3.webp",
+   "size": 2202,
+   "hash": "53a5cbcce1ae",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/meteor4.webp",
+   "size": 2208,
+   "hash": "45f697a1c4ad",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/meteor5.webp",
+   "size": 2352,
+   "hash": "c77ed9df8586",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/sky.webp",
+   "size": 28842,
+   "hash": "a2ed43e0926f",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/stars.webp",
+   "size": 9790,
+   "hash": "ee049b5e5823",
+   "type": "image/webp"
+  },
+  {
+   "path": "media/bake/static.webp",
+   "size": 420304,
+   "hash": "4df95bb439c0",
+   "type": "image/webp"
+  },
+  {
    "path": "media/ball.mp3",
    "size": 33024,
    "hash": "5335f87dec60",

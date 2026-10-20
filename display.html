@@ -128,7 +128,32 @@ html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:var(-
   let stars = [], meteorSprites = [], meteor = null, nextMeteor = 0;
   const METEOR_DIR = [-0.861, 0.509];   // the way the drawn meteors point (head lower-left)
 
+  async function loadBaked(){
+    const man = await fetch('media/bake/bake.json').then(r => r.ok ? r.json() : null).catch(() => null);
+    if(!man || !man.els) return false;
+    try{
+      const pic = f => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = 'media/bake/' + f; });
+      const toCan = im => { const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d').drawImage(im, 0, 0); return c; };
+      const ras = async o => o ? Object.assign({}, o, { can: toCan(await pic(o.file)) }) : null;
+      const [sky, stat, mets, elsB, atlas] = await Promise.all([ras(man.sky), ras(man.static), Promise.all((man.meteors || []).map(ras)),
+        Promise.all(man.els.map(ras)), man.starsAtlas ? pic(man.starsAtlas.file) : null]);
+      bgSky = sky; bgStatic = stat; meteorSprites = mets;
+      stars = atlas ? man.stars.map(s => {
+        const c = document.createElement('canvas'); c.width = s.aw; c.height = s.ah;
+        c.getContext('2d').drawImage(atlas, s.ax, s.ay, s.aw, s.ah, 0, 0, s.aw, s.ah);
+        return { can: c, x: s.x, y: s.y, w: s.w, h: s.h, ph: rand(0, 6.28), f: rand(0.5, 2.0) * (s.big ? 0.7 : 1), low: s.big ? 0.45 : rand(0.15, 0.4) };
+      }) : [];
+      els = elsB.map(e => Object.assign(e, { freq: e.role === 'tree' ? rand(0.35, 0.55) : e.role === 'branch' ? rand(0.4, 0.6) : rand(0.5, 1.0), phase: rand(0, 6.28), bend: 0 }));
+      flowerSpots = (man.flowers || []).map(f => ({ x: f.x, y: f.y, el: els[f.el] })).filter(f => f.el);
+      if(meteorSprites.length) nextMeteor = performance.now() + rand(3000, 7000);
+      bgReady = true;
+      computeSpots();
+      $('loading').hidden = true;
+      return true;
+    }catch(_){ bgSky = bgStatic = null; stars = []; meteorSprites = []; els = []; flowerSpots = []; return false; }
+  }
   async function loadBackground(){
+    if(!window.__bakeExport && await loadBaked()) return;
     const txt = await fetch('media/background.svg').then(r => { if(!r.ok) throw new Error('missing'); return r.text(); });
     const doc = new DOMParser().parseFromString(txt, 'image/svg+xml');
     const svg = doc.documentElement;
@@ -243,6 +268,7 @@ html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:var(-
     out.sort((a,b) => a.baseY - b.baseY || a.i - b.i);
     els = out; bgReady = true;
     computeSpots();
+    if(window.__bakeExport) window.__bakeExport({ bgSky, bgStatic, stars, meteorSprites, els, flowerSpots });
     $('loading').hidden = true;
   }
 
@@ -851,10 +877,11 @@ html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:var(-
       const meta = await fetch(`media/girls/${gd.id}/parts.json`).then(r => r.json());
       const load = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
       const baked = [], dparts = [];
+      const arts = await Promise.all(meta.parts.map(p => load(`media/girls/${gd.id}/${p.id}.png`)));
       for(const p of meta.parts){
         const part = { id: p.id, pivot: p.pivot, box: { x: p.x, y: p.y, w: p.w, h: p.h }, ebox: { x: p.x, y: p.y, w: p.w, h: p.h } };
         dparts.push(part);
-        const art = await load(`media/girls/${gd.id}/${p.id}.png`);
+        const art = arts[meta.parts.indexOf(p)];
         baked.push({ part, art, edge: art });   // no white edge: the soft shadow follows the photo itself
       }
       const bx0 = Math.min(...meta.parts.map(p => p.x)) - 20, by0 = Math.min(...meta.parts.map(p => p.y)) - 20;
