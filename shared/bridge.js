@@ -405,39 +405,6 @@
   }
   report();
 
-  /* ---------------- on-screen check (temporary, projector only) ---------------- */
-  if(window.JUNGLE_TV){
-    var box = null, lines = [];
-    var say = function(t){
-      lines.push(t); if(lines.length > 18) lines.shift();
-      if(!box && document.body){
-        box = document.createElement('pre');
-        box.style.cssText = 'position:fixed;left:10px;top:10px;z-index:99999;margin:0;padding:12px 16px;max-width:1880px;white-space:pre-wrap;font:22px/1.35 monospace;color:#fff;background:rgba(0,0,0,.85);border:2px solid #FFC83D';
-        document.body.appendChild(box);
-      }
-      if(box) box.textContent = lines.join('\n');
-    };
-    window.__say = say;
-    var start = function(){
-      say('UA: ' + navigator.userAgent);
-      say('screen ' + window.innerWidth + 'x' + window.innerHeight + '  key ' + KEY.length + '  firebase ' + (typeof window.firebase) + (initError ? '  init error: ' + initError : ''));
-      window.addEventListener('error', function(e){ say('ERROR ' + e.message + ' (' + String(e.filename || '').split('/').pop() + ':' + e.lineno + ')'); });
-      if(db){ db.ref('.info/connected').on('value', function(s){ say('firebase connected: ' + s.val()); }); }
-      var x = new XMLHttpRequest();
-      x.open('GET', FIREBASE.databaseURL + '/.json?shallow=true', true);
-      x.onload = function(){ say('firebase http: ' + x.status); };
-      x.onerror = function(){ say('firebase http: network error'); };
-      x.send();
-      var y = new XMLHttpRequest();
-      y.open('GET', 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js', true);
-      y.onload = function(){ say('gstatic: ' + y.status); };
-      y.onerror = function(){ say('gstatic: network error'); };
-      y.send();
-      setTimeout(function(){ say('forest ready: ' + !!(window.__jungle && window.__jungle.ready && window.__jungle.ready())); }, 8000);
-    };
-    if(document.body) start(); else document.addEventListener('DOMContentLoaded', start);
-  }
-
   /* ---------------- start ---------------- */
   if(isPhone) startPhone();
   else{
