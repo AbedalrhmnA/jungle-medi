@@ -450,6 +450,12 @@
         try{ window.parent.postMessage({ jungle: 'key', keyCode: e.keyCode }, '*'); }catch(_){}
       });
     }
+    else if(window.JUNGLE_TV){
+      // opened as the projector app's own page: Back returns to the app's menu
+      window.addEventListener('keydown', function(e){
+        if(e.keyCode === 10009){ e.preventDefault(); if(history.length > 1) history.back(); }
+      });
+    }
     window.addEventListener('message', function(e){ if(e.data && e.data.jungle === 'ping' && e.source){ try{ e.source.postMessage({ jungle: 'pong' }, '*'); }catch(_){} } });
     setupOfflineFiles();
   }
