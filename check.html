@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920">
+<title>Check</title>
+<style>
+html,body{margin:0;background:#06100A;color:#fff;font:26px/1.45 monospace}
+#out{padding:30px 40px;white-space:pre-wrap}
+.ok{color:#7CFC7C}.bad{color:#FF7070}
+canvas{position:fixed;right:40px;bottom:40px;width:320px;height:180px;border:3px solid #FFC83D}
+</style>
+</head>
+<body>
+<div id="out">CHECK STARTED (if you only see this line, JavaScript is not running)</div>
+<canvas id="c" width="320" height="180"></canvas>
+<script>
+var out = document.getElementById('out');
+function line(t, cls){ var d = document.createElement('div'); if(cls) d.className = cls; d.textContent = t; out.appendChild(d); }
+function yes(t, v){ line((v ? 'YES ' : 'NO  ') + t, v ? 'ok' : 'bad'); }
+line('UA: ' + navigator.userAgent);
+line('screen ' + window.innerWidth + 'x' + window.innerHeight);
+function css(p, v){ try{ return CSS.supports(p, v); }catch(e){ return false; } }
+yes('css inset', css('inset', '0'));
+yes('css aspect-ratio', css('aspect-ratio', '16/9'));
+yes('css gap (flex)', css('gap', '10px'));
+var syn = [['optional chaining ?.', 'var a = {}; a?.b;'], ['nullish ??', 'var a = null ?? 1;'], ['async/await', '(async function(){ await 1; })'], ['class fields', '(class { x = 1 })'], ['Array.at', 'if(![1].at) throw 0;']];
+syn.forEach(function(s){ var ok = true; try{ new Function(s[1])(); }catch(e){ ok = false; } yes(s[0], ok); });
+yes('service worker', 'serviceWorker' in navigator);
+yes('WebSocket', !!window.WebSocket);
+yes('AudioContext', !!(window.AudioContext || window.webkitAudioContext));
+try{ var x = document.getElementById('c').getContext('2d'); x.fillStyle = '#2B4A33'; x.fillRect(0,0,320,180); x.fillStyle = '#FFC83D'; x.font = '28px sans-serif'; x.fillText('canvas works', 40, 100); yes('canvas', true); }catch(e){ yes('canvas', false); }
+function get(name, url){
+  var r = new XMLHttpRequest(); var t0 = Date.now();
+  r.open('GET', url, true); r.timeout = 10000;
+  r.onload = function(){ yes(name + ' (' + r.status + ', ' + (Date.now() - t0) + 'ms)', r.status >= 200 && r.status < 400); };
+  r.onerror = function(){ yes(name + ' network error', false); };
+  r.ontimeout = function(){ yes(name + ' timeout', false); };
+  r.send();
+}
+get('github pages', 'videos.json?x=' + Date.now());
+get('gstatic (firebase library)', 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
+get('firebase database', 'https://jungle-game-9e4e7-default-rtdb.asia-southeast1.firebasedatabase.app/rooms/checkcheckcheckcheckcheck.json');
+try{
+  var ws = new WebSocket('wss://jungle-game-9e4e7-default-rtdb.asia-southeast1.firebasedatabase.app/.ws?v=5');
+  ws.onopen = function(){ yes('firebase websocket', true); ws.close(); };
+  ws.onerror = function(){ yes('firebase websocket', false); };
+}catch(e){ yes('firebase websocket (' + e.message + ')', false); }
+window.onerror = function(m, f, l){ line('ERROR ' + m + ' line ' + l, 'bad'); };
+</script>
+</body>
+</html>
