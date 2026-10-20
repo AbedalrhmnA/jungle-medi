@@ -86,6 +86,17 @@
     });
   }
 
+  /* ---------------- direct phone <-> projector link on the local Wi-Fi (WebRTC) ---------------- */
+  var RTC_CFG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+  var hasRTC = typeof window.RTCPeerConnection === 'function';
+  function waitIce(pc, ms){
+    return new Promise(function(res){
+      if(pc.iceGatheringState === 'complete') return res();
+      var t = setTimeout(res, ms);
+      pc.addEventListener('icegatheringstatechange', function(){ if(pc.iceGatheringState === 'complete'){ clearTimeout(t); res(); } });
+    });
+  }
+
   /* ======================================================================
    * BIG SCREEN
    * ==================================================================== */
@@ -184,6 +195,12 @@
     }
     return { ok: false, error: 'not found' };
   }
+  function onDirect(data){
+    var m; try{ m = JSON.parse(data); }catch(e){ return; }
+    if(!m || (m.p !== '/api/play/cmd' && m.p !== '/api/play/touch')) return;
+    refereePost(m.p, m.b || {});
+    if(m.b && m.b.cmd === 'who') publish();
+  }
   function moveMsg(x, y){
     x = Math.max(-1, Math.min(1, Number(x) || 0)); y = Math.max(-1, Math.min(1, Number(y) || 0));
     lastMove = { x: x, y: y, at: Date.now() };
@@ -227,6 +244,29 @@
       if(first.touch){ first.touch = false; return; }
       var v = s.val(); if(v && stage.kind === 'play' && stage.owner === v.id) stage.active = now();
     });
+
+    // direct links from phones
+    if(hasRTC){
+      room.child('rtc').remove().catch(function(){});
+      var pcs = [];
+      room.child('rtc').on('child_added', function(snap){
+        var v = snap.val();
+        if(!v || !v.offer || v.answer) return;
+        var pc;
+        try{ pc = new RTCPeerConnection(RTC_CFG); }catch(e){ return; }
+        pcs.push(pc); if(pcs.length > 20){ try{ pcs.shift().close(); }catch(e){} }
+        pc.ondatachannel = function(ev){ ev.channel.onmessage = function(m){ onDirect(m.data); }; };
+        pc.onconnectionstatechange = function(){
+          if(pc.connectionState === 'failed' || pc.connectionState === 'closed'){ try{ pc.close(); }catch(e){} var i = pcs.indexOf(pc); if(i >= 0) pcs.splice(i, 1); }
+        };
+        pc.setRemoteDescription({ type: 'offer', sdp: v.offer })
+          .then(function(){ return pc.createAnswer(); })
+          .then(function(a){ return pc.setLocalDescription(a); })
+          .then(function(){ return waitIce(pc, 2500); })
+          .then(function(){ return snap.ref.child('answer').set(pc.localDescription.sdp); })
+          .catch(function(){ try{ pc.close(); }catch(e){} });
+      });
+    }
 
     // settings saved from the laptop: apply them by restarting the forest
     var firstCfg = true;
@@ -320,8 +360,52 @@
       ref.set({ p: path, b: data || {}, t: TS }).catch(function(){ finish(null); });
     });
   }
+  var link = { busy: false, fast: null, sure: null };
+  function linkOpen(ch){ return ch && ch.readyState === 'open'; }
+  function connectDirect(){
+    if(!room || !hasRTC || link.busy || linkOpen(link.sure)) return;
+    link.busy = true;
+    var id = Math.random().toString(36).slice(2, 12), ref = room.child('rtc/' + id), pc, done = false;
+    try{ pc = new RTCPeerConnection(RTC_CFG); }catch(e){ link.busy = false; return; }
+    var fast = pc.createDataChannel('m', { ordered: false, maxRetransmits: 0 });
+    var sure = pc.createDataChannel('c');
+    function fail(){
+      if(done) return; done = true;
+      ref.child('answer').off(); ref.remove().catch(function(){});
+      try{ pc.close(); }catch(e){}
+      link.busy = false;
+      setTimeout(connectDirect, 20000);
+    }
+    var timer = setTimeout(fail, 15000);
+    sure.onopen = function(){
+      done = true; clearTimeout(timer); link.busy = false;
+      link.fast = fast; link.sure = sure;
+      ref.child('answer').off(); ref.remove().catch(function(){});
+    };
+    sure.onclose = function(){ if(link.sure === sure){ link.sure = null; link.fast = null; setTimeout(connectDirect, 3000); } };
+    pc.createOffer()
+      .then(function(o){ return pc.setLocalDescription(o); })
+      .then(function(){ return waitIce(pc, 2500); })
+      .then(function(){
+        ref.child('answer').on('value', function(s){
+          var sdp = s.val(); if(!sdp || done) return;
+          pc.setRemoteDescription({ type: 'answer', sdp: sdp }).catch(fail);
+        });
+        return ref.set({ offer: pc.localDescription.sdp, t: TS });
+      })
+      .catch(fail);
+  }
+  function sendDirect(path, data){
+    var ch = (data && data.cmd === 'move') || path === '/api/play/touch' ? link.fast : link.sure;
+    if(!linkOpen(ch)) ch = link.sure;
+    if(!linkOpen(ch)) return false;
+    try{ ch.send(JSON.stringify({ p: path, b: data || {} })); return true; }catch(e){ return false; }
+  }
+  window.__jungleLink = function(){ return linkOpen(link.sure) ? 'direct' : 'firebase'; };
+
   function startPhone(){
     if(!room) return;
+    setTimeout(connectDirect, 1500);
     room.child('stage').on('value', function(s){ lastStage = s.val(); });
     // tell the screen a phone is here (hides the QR code), like opening the page used to
     setTimeout(function(){ ask('/api/_phone', {}); }, 800);
@@ -336,6 +420,11 @@
     }
     if(!room) return Promise.resolve(null);
     var pid = String((data && data.id) || '');
+    if((path === '/api/play/cmd' || path === '/api/play/touch') && sendDirect(path, data)){
+      var st0 = phoneStatus(pid) || {};
+      if(data && (data.cmd === 'move' || path === '/api/play/touch')) return Promise.resolve(st0.mine ? Object.assign({ ok: true }, st0) : { ok: true });
+      return Promise.resolve(Object.assign({ ok: true }, st0, st0.mine ? {} : { mine: true }));
+    }
     if(path === '/api/play/cmd' && data && data.cmd === 'move'){
       room.child('move').set({ id: pid, x: Number(data.x) || 0, y: Number(data.y) || 0, n: ++moveN }).catch(function(){});
       var st = phoneStatus(pid) || {};

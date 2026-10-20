@@ -90,7 +90,7 @@ html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:var(-
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-<script src="shared/bridge.js?v=8c71819056"></script>
+<script src="shared/bridge.js?v=bc9097a660"></script>
 <script src="shared/animals.js?v=eb54cf8fd7"></script>
 <script src="shared/figure.js?v=17760a0592"></script>
 <script src="shared/qr.js?v=659bb13450"></script>
@@ -1358,6 +1358,10 @@ html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:var(-
     el.addEventListener('ended', () => stopVideo(true));
     el.addEventListener('error', () => stopVideo(true));
     el.play().catch(() => { el.muted = true; el.play().catch(() => stopVideo(true)); });
+    if(window.JUNGLE_TV){
+      el.style.cssText = 'position:absolute;left:25%;top:22.037%;width:50%;height:50%;object-fit:contain;background:#0B0F0C;z-index:0;opacity:0';
+      cv.style.zIndex = '1'; $('frame').insertBefore(el, cv);
+    }
     video.el = el; video.file = file; video.active = true; video.fading = false;
     setAmbienceLevel();
     if(duo.mode === 'ctrl' || autoMode() || duo.mode === 'shelter' || duo.mode === 'video' || duo.mode === 'tovideo') girlsToVideo();
@@ -1372,6 +1376,7 @@ html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:var(-
   function killVideo(){
     const el = video.el; if(!el) return;
     try { el.pause(); el.removeAttribute('src'); el.load(); } catch(_) {}
+    if(el.parentNode) el.parentNode.removeChild(el);
     video.el = null; video.alpha = 0; video.fading = false;
   }
   function updateVideo(dt){
@@ -1395,7 +1400,11 @@ html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:var(-
     ctx.fillStyle = '#FFFDF8'; roundRectPath(R.x - 16, R.y - 16, R.w + 32, R.h + 32, 20); ctx.fill();
     ctx.shadowColor = 'transparent';
     ctx.fillStyle = '#0B0F0C'; ctx.fillRect(R.x, R.y, R.w, R.h);
-    if(el.readyState >= 2 && el.videoWidth){
+    if(window.JUNGLE_TV){
+      el.style.opacity = String(e); el.style.transform = 'scale(' + k + ')';
+      ctx.globalCompositeOperation = 'destination-out'; ctx.globalAlpha = 1; ctx.fillRect(R.x, R.y, R.w, R.h);
+    }
+    else if(el.readyState >= 2 && el.videoWidth){
       const s = Math.min(R.w/el.videoWidth, R.h/el.videoHeight), vw = el.videoWidth*s, vh = el.videoHeight*s;
       ctx.drawImage(el, R.x + (R.w - vw)/2, R.y + (R.h - vh)/2, vw, vh);
     }
