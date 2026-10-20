@@ -1,0 +1,304 @@
+{
+ "files": [
+  {
+   "path": "media/background.svg",
+   "size": 2952821,
+   "hash": "849bbd016326",
+   "type": "image/svg+xml"
+  },
+  {
+   "path": "media/ball.mp3",
+   "size": 33024,
+   "hash": "5335f87dec60",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/butterfly.mp3",
+   "size": 61022,
+   "hash": "40505ce43b4b",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/clap.mp3",
+   "size": 20062,
+   "hash": "850f5ff2f33a",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/elephant.mp3",
+   "size": 67709,
+   "hash": "88630998404e",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/frog.mp3",
+   "size": 57678,
+   "hash": "911db500ed7e",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/giggle.mp3",
+   "size": 257462,
+   "hash": "24b5a99c525b",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/girls/girl1/armL.png",
+   "size": 23648,
+   "hash": "4afa41d2a395",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl1/armL_edge.png",
+   "size": 2241,
+   "hash": "53f05b53edcc",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl1/armR.png",
+   "size": 17256,
+   "hash": "dd1b977b1f32",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl1/armR_edge.png",
+   "size": 2235,
+   "hash": "80d3297dd1b3",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl1/head.png",
+   "size": 64707,
+   "hash": "05d4f048ea9c",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl1/head_edge.png",
+   "size": 5928,
+   "hash": "fcfc5fafd040",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl1/legL.png",
+   "size": 25046,
+   "hash": "2208b52c0cb5",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl1/legL_edge.png",
+   "size": 2669,
+   "hash": "dc914ee819d5",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl1/legR.png",
+   "size": 21172,
+   "hash": "dfb06acd7dc9",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl1/legR_edge.png",
+   "size": 2746,
+   "hash": "53215eb73047",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl1/parts.json",
+   "size": 914,
+   "hash": "e171eba557d6",
+   "type": "application/json"
+  },
+  {
+   "path": "media/girls/girl1/torso.png",
+   "size": 143371,
+   "hash": "e3515f65026d",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl1/torso_edge.png",
+   "size": 7773,
+   "hash": "4c657769054a",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/armL.png",
+   "size": 18095,
+   "hash": "7de2b595bac2",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/armL_edge.png",
+   "size": 2817,
+   "hash": "573031e5419d",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/armR.png",
+   "size": 18189,
+   "hash": "3ddfd29e035f",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/armR_edge.png",
+   "size": 2798,
+   "hash": "0d4f616cd2cf",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/head.png",
+   "size": 34276,
+   "hash": "3f7285a6f726",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/head_edge.png",
+   "size": 2986,
+   "hash": "d9b2e80cf241",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/legL.png",
+   "size": 37397,
+   "hash": "8497b611722b",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/legL_edge.png",
+   "size": 2450,
+   "hash": "03a5da0d9245",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/legR.png",
+   "size": 37498,
+   "hash": "b0bc918cd588",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/legR_edge.png",
+   "size": 2658,
+   "hash": "01fec50076cf",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/parts.json",
+   "size": 908,
+   "hash": "95266b22070d",
+   "type": "application/json"
+  },
+  {
+   "path": "media/girls/girl2/torso.png",
+   "size": 96906,
+   "hash": "0ba8f130943d",
+   "type": "image/png"
+  },
+  {
+   "path": "media/girls/girl2/torso_edge.png",
+   "size": 3353,
+   "hash": "156eba00d643",
+   "type": "image/png"
+  },
+  {
+   "path": "media/jungle.mp3",
+   "size": 18848287,
+   "hash": "b8b9ae5c5139",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/laugh.mp3",
+   "size": 82755,
+   "hash": "f51452a5998d",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/monkey.mp3",
+   "size": 87771,
+   "hash": "7f5d426fd1b5",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/parrot1.mp3",
+   "size": 18390,
+   "hash": "cd1248a00b67",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/parrot2.mp3",
+   "size": 18390,
+   "hash": "581597e0ef49",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/snake.mp3",
+   "size": 95294,
+   "hash": "c9d59100bcbf",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/tiger.mp3",
+   "size": 61440,
+   "hash": "6b9a0dddc7ce",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/tongue.mp3",
+   "size": 25920,
+   "hash": "ff7ba97358a1",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/toucan.mp3",
+   "size": 46080,
+   "hash": "d1598af9e4c3",
+   "type": "audio/mpeg"
+  },
+  {
+   "path": "media/videos/alphabet-song.jpg",
+   "size": 19406,
+   "hash": "a8e77e694966",
+   "type": "image/jpeg"
+  },
+  {
+   "path": "media/videos/alphabet-song.mp4",
+   "size": 4622386,
+   "hash": "8c91b6d9eca0",
+   "type": "video/mp4"
+  },
+  {
+   "path": "media/videos/arabic-letters.jpg",
+   "size": 21308,
+   "hash": "ed625c1fa634",
+   "type": "image/jpeg"
+  },
+  {
+   "path": "media/videos/arabic-letters.mp4",
+   "size": 70706443,
+   "hash": "729262cec589",
+   "type": "video/mp4"
+  },
+  {
+   "path": "media/videos/five-little-ducks.jpg",
+   "size": 17901,
+   "hash": "6dca1d2b5a0f",
+   "type": "image/jpeg"
+  },
+  {
+   "path": "media/videos/five-little-ducks.mp4",
+   "size": 14729989,
+   "hash": "3d46d917de5b",
+   "type": "video/mp4"
+  },
+  {
+   "path": "media/videos/laila-ya-laila.jpg",
+   "size": 16842,
+   "hash": "c735064e9c4b",
+   "type": "image/jpeg"
+  },
+  {
+   "path": "media/videos/laila-ya-laila.mp4",
+   "size": 11540636,
+   "hash": "2d61dfbd07e8",
+   "type": "video/mp4"
+  }
+ ]
+}

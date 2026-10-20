@@ -1,0 +1,1656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jungle</title>
+<style>
+:root{--ink:#1B1F1A;--paper:#FFFDF8;--sun:#FFC83D;--panel:rgba(14,22,15,.94);--muted:#A9BFAE;
+  --font:"Segoe UI",Roboto,"Helvetica Neue",Arial,system-ui,sans-serif}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:var(--font);color:var(--paper)}
+#frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);aspect-ratio:16/9;width:min(100vw,calc(100vh*16/9));overflow:hidden;background:#0B1A26}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block}
+#stage.editing{cursor:crosshair}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;cursor:pointer;text-align:center;padding:16px}
+#overlay h1{margin:0;font-size:clamp(26px,4vw,48px)}
+#overlay p{margin:0;color:var(--muted);font-size:18px}
+#overlay code{font-family:Consolas,monospace;font-size:clamp(18px,2.4vw,30px);color:var(--sun);background:rgba(255,255,255,.08);padding:6px 14px;border-radius:8px}
+#loading{position:fixed;right:14px;bottom:12px;font-size:13px;color:var(--muted);background:rgba(0,0,0,.45);padding:5px 10px;border-radius:8px}
+#gear{position:fixed;left:12px;bottom:12px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);font-size:20px;cursor:pointer}
+#gear:hover{background:rgba(255,255,255,.2);color:#fff}
+#panel{position:fixed;left:12px;bottom:60px;width:min(380px,calc(100vw - 24px));max-height:calc(100vh - 80px);overflow:auto;background:var(--panel);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;font-size:14px}
+#panel h2{margin:0;font-size:17px}
+#panel h3{margin:4px 0 0;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#panel label{display:flex;flex-direction:column;gap:4px}
+#panel .row{display:flex;justify-content:space-between;color:var(--muted)}
+#panel input[type=range]{width:100%}
+#panel .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#panel .btns3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+#panel button{border:0;border-radius:10px;padding:9px 6px;font:inherit;font-weight:700;cursor:pointer;background:#2B4A33;color:var(--paper)}
+#panel button.active{background:var(--sun);color:var(--ink)}
+#panel button.primary{background:var(--sun);color:var(--ink);grid-column:1/-1}
+#hint{color:var(--sun);font-size:13px}
+#status{color:var(--muted);font-size:12.5px}
+#qr{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#FFFDF8;border-radius:26px;padding:22px 22px 14px;
+  box-shadow:0 18px 50px rgba(0,0,0,.5);display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .5s ease,opacity .5s ease;z-index:4}
+#qr canvas{width:min(36vh,380px);height:min(36vh,380px);image-rendering:pixelated;display:block}
+#qr .scan{color:#1B1F1A;font-weight:900;font-size:min(4.6vh,40px);letter-spacing:.02em}
+#qr.bye{transform:translate(-50%,-50%) scale(.2);opacity:0}
+</style>
+</head>
+<body>
+<div id="frame"><canvas id="stage"></canvas></div>
+
+<div id="overlay">
+  <h1>Click to start</h1>
+  <p>Open this address on the phone (same Wi-Fi):</p>
+  <code id="phoneUrl">...</code>
+</div>
+<div id="loading">Loading forest...</div>
+<div id="qr" hidden><canvas id="qrCan"></canvas><div class="scan">Scan to play</div></div>
+
+<button id="gear" type="button" aria-label="Settings" title="Settings">⚙</button>
+<div id="panel" hidden>
+  <h2>Scene settings</h2>
+  <label><span class="row"><span>Animal size</span><span id="vSize"></span></span><input id="size" type="range" min="100" max="500" step="5"></label>
+  <label><span class="row"><span>Girls size</span><span id="vGirl"></span></span><input id="girl" type="range" min="120" max="600" step="5"></label>
+  <label><span class="row"><span>Entry point</span><span id="vEntry"></span></span><input id="entry" type="range" min="5" max="95" step="1"></label>
+  <label><span class="row"><span>Delay after the jump</span><span id="vDelay"></span></span><input id="delay" type="range" min="0" max="2000" step="50"></label>
+  <label><span class="row"><span>Forest sound volume</span><span id="vAmb"></span></span><input id="amb" type="range" min="0" max="100" step="1"></label>
+  <h3>Walking area</h3>
+  <div class="btns3">
+    <button id="editWalk" type="button">Edit</button>
+    <button id="undoWalk" type="button">Undo point</button>
+    <button id="clearWalk" type="button">Clear</button>
+  </div>
+  <h3>Branch points (birds and monkey)</h3>
+  <div class="btns3">
+    <button id="editPerch" type="button">Edit</button>
+    <button id="undoPerch" type="button">Undo point</button>
+    <button id="clearPerch" type="button">Clear</button>
+  </div>
+  <h3>Girls' places</h3>
+  <div class="btns">
+    <button id="editGirls" type="button">Set places</button>
+  </div>
+  <div id="hint" hidden></div>
+  <h3>Test</h3>
+  <div class="btns3" id="testBtns"></div>
+  <div class="btns">
+    <button id="stormNow" type="button">Storm now</button>
+    <button id="nextGame" type="button">Girls: next game</button>
+    <button id="rainNow" type="button">Rain now</button>
+    <button id="meteorNow" type="button">Meteor now</button>
+    <button id="save" class="primary" type="button">Save settings</button>
+  </div>
+  <div id="status"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="shared/bridge.js"></script>
+<script src="shared/animals.js"></script>
+<script src="shared/figure.js"></script>
+<script src="shared/qr.js"></script>
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const W = 1920, H = 1080, MAX = 15, CFG_VERSION = 4;
+  const rand = (a,b) => a + Math.random()*(b-a);
+  const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+  const DEG = Math.PI/180;
+  const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+  for (const id in ANIMALS) Figure.prepare(ANIMALS[id]);
+
+  const cfg = {
+    v: CFG_VERSION, size: 230, girlSize: 300, entryX: 0.5, delay: 650, ambience: 0.5,
+    walk: [[330,700],[640,575],[1000,520],[1380,480],[1500,560],[1430,690],[1120,780],[700,810],[380,790]],
+    perches: [[95,312],[250,182],[380,188],[1540,446],[1820,415]],
+    girls: [[640,770],[1240,730]]
+  };
+  const rain = { active: false, t0: 0, next: 0, k: 0, drops: [], rings: [] };
+  const video = { el: null, file: null, active: false, fading: false, alpha: 0 };
+  const held = [];   // drawings that arrive during a video wait here
+
+  /* ---------- canvas ---------- */
+  const cv = $('stage'), ctx = cv.getContext('2d');
+  let sc = 1;
+  function resize(){ const r = cv.getBoundingClientRect(), dpr = devicePixelRatio||1;
+    cv.width = Math.max(1,Math.round(r.width*dpr)); cv.height = Math.max(1,Math.round(r.height*dpr)); sc = cv.width / W; }
+  addEventListener('resize', resize); resize();
+
+  /* ---------- living background from the Illustrator SVG ---------- */
+  const ROLE_MAP = {0:'static',1:'static',2:'static',3:'tree',4:'static',5:'rock',6:'plant',7:'tree',8:'tree',9:'branch',
+    10:'plant',11:'plant',12:'plant',13:'plant',14:'plant',15:'plant',16:'plant',17:'plant',18:'plant',19:'plant',20:'plant',21:'plant',22:'plant'};
+  let bgSky = null, bgStatic = null, els = [], bgReady = false, flowerSpots = [];
+  let stars = [], meteorSprites = [], meteor = null, nextMeteor = 0;
+  const METEOR_DIR = [-0.861, 0.509];   // the way the drawn meteors point (head lower-left)
+
+  async function loadBackground(){
+    const txt = await fetch('media/background.svg').then(r => { if(!r.ok) throw new Error('missing'); return r.text(); });
+    const doc = new DOMParser().parseFromString(txt, 'image/svg+xml');
+    const svg = doc.documentElement;
+    const kidsOf = e => [...e.children].filter(k => !['defs','title','desc','style','metadata'].includes(k.localName));
+    // blend modes written as attributes are ignored by browsers: move them into style
+    svg.querySelectorAll('[mix-blend-mode],[isolation]').forEach(n => {
+      let st = n.getAttribute('style') || '';
+      for(const a of ['mix-blend-mode','isolation']){ const v = n.getAttribute(a); if(v){ st += (st && !st.trim().endsWith(';') ? ';' : '') + a + ':' + v; n.removeAttribute(a); } }
+      n.setAttribute('style', st);
+    });
+    let c = svg, path = [];
+    for(;;){
+      const kids = kidsOf(c);
+      if(kids.length === 1 && kids[0].localName === 'g'){ c = kids[0]; path.push(c); continue; }
+      break;
+    }
+    path.forEach(n => n.removeAttribute('clip-path'));
+    const groups = kidsOf(c);
+    groups.forEach((g,i) => g.setAttribute('data-idx', i));
+    const sameFile = groups.length === 23;
+
+    // sky pieces that move: the six meteors and the two star groups
+    let g0kids = [], meteorNodes = [], starNodes = [];
+    if(sameFile){
+      g0kids = kidsOf(groups[0]);
+      const sk = g0kids[1] ? kidsOf(g0kids[1]) : [];
+      if(sk.length >= 8){ meteorNodes = sk.slice(0, 6); starNodes = sk.slice(6, 8); }
+    }
+    meteorNodes.forEach((n,i) => n.setAttribute('data-met', i));
+
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:absolute;left:-99999px;top:0;width:1920px;height:1080px;visibility:hidden;';
+    const live = document.importNode(svg, true);
+    live.setAttribute('width', 1920); live.setAttribute('height', 1080); live.setAttribute('viewBox', '0 0 1920 1080');
+    holder.appendChild(live); document.body.appendChild(holder);
+    const root = live.getBoundingClientRect();
+    const boxOf = el => { const r = el.getBoundingClientRect(); return { x: r.left - root.left, y: r.top - root.top, w: r.width, h: r.height }; };
+    const boxes = groups.map((g,i) => {
+      const el = live.querySelector(`[data-idx="${i}"]`);
+      return Object.assign(boxOf(el), { imgs: el.querySelectorAll('image').length });
+    });
+    const metBoxes = meteorNodes.map((n,i) => boxOf(live.querySelector(`[data-met="${i}"]`)));
+    holder.remove();
+
+    const R = clamp(sc, 1, 2);
+    const ser = new XMLSerializer();
+    const FULL = { x: 0, y: 0, w: W, h: H };
+    async function rasterize(showIdx, box){
+      groups.forEach((g,i) => { if(showIdx.includes(i)) g.removeAttribute('display'); else g.setAttribute('display','none'); });
+      const pad = 4, bx = Math.floor(box.x - pad), by = Math.floor(box.y - pad), bw = Math.ceil(box.w + pad*2), bh = Math.ceil(box.h + pad*2);
+      svg.setAttribute('viewBox', `${bx} ${by} ${bw} ${bh}`);
+      svg.setAttribute('width', Math.round(bw*R)); svg.setAttribute('height', Math.round(bh*R));
+      const url = URL.createObjectURL(new Blob([ser.serializeToString(svg)], {type:'image/svg+xml'}));
+      const img = new Image(); img.decoding = 'async';
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+      const can = document.createElement('canvas'); can.width = Math.round(bw*R); can.height = Math.round(bh*R);
+      can.getContext('2d').drawImage(img, 0, 0, can.width, can.height);
+      URL.revokeObjectURL(url);
+      return { can, x: bx, y: by, w: bw, h: bh, R };
+    }
+    const hide = (nodes, on) => nodes.forEach(n => on ? n.setAttribute('display','none') : n.removeAttribute('display'));
+    const roles = boxes.map((b,i) => {
+      if(sameFile && ROLE_MAP[i]) return ROLE_MAP[i];
+      if(b.imgs || b.w > 1500) return 'static';
+      if(b.h > 650) return 'tree';
+      if(b.x <= 0 && b.w < 700 && b.h < 400) return 'branch';
+      return 'plant';
+    });
+    const staticIdx = roles.map((r,i) => r === 'static' ? i : -1).filter(i => i >= 0);
+    $('loading').textContent = 'Loading forest... sky';
+    if(starNodes.length){
+      hide(meteorNodes, true); hide(starNodes, true);
+      bgSky = await rasterize([0], FULL);
+      bgStatic = await rasterize(staticIdx.filter(i => i !== 0), FULL);
+      // the stars alone, then each one cut out so it can twinkle by itself
+      g0kids.forEach((k,i) => { if(i !== 1) k.setAttribute('display','none'); });
+      hide(starNodes, false);
+      findStars(await rasterize([0], FULL));
+      hide(starNodes, true);
+      for(let i=0;i<meteorNodes.length;i++){
+        hide(meteorNodes, true); meteorNodes[i].removeAttribute('display');
+        meteorSprites.push(await rasterize([0], metBoxes[i]));
+      }
+      hide(meteorNodes, true);
+      g0kids.forEach(k => k.removeAttribute('display'));
+      nextMeteor = performance.now() + rand(3000, 7000);
+    } else {
+      bgStatic = await rasterize(staticIdx, FULL);
+    }
+
+    const out = [];
+    let n = 0;
+    for(let i=0;i<groups.length;i++){
+      if(roles[i] === 'static') continue;
+      n++; $('loading').textContent = `Loading forest... ${n}`;
+      const b = boxes[i], r = await rasterize([i], b), role = roles[i], bottom = b.y + b.h;
+      const e = { i, role, can: r.can, x: r.x, y: r.y, w: r.w, h: r.h, baseY: Math.min(bottom, H), px: b.x + b.w/2, py: bottom,
+        amp: 0, freq: rand(0.5, 1.0), phase: rand(0, 6.28), bend: 0 };
+      if(role === 'plant'){ e.amp = clamp(1.6 * 220 / Math.max(80, b.h), 0.7, 2.2) * DEG; }
+      else if(role === 'tree'){ e.amp = 0.35 * DEG; e.freq = rand(0.35, 0.55); }
+      else if(role === 'branch'){ e.amp = 0.8 * DEG; e.freq = rand(0.4, 0.6); e.px = Math.max(b.x, -20); e.py = b.y + b.h*0.55; }
+      out.push(e);
+      // landing spots for butterflies: top of each plant
+      if(role === 'plant' && b.y > 120 && b.y < H - 60){
+        const cx2 = r.can.getContext('2d'), data = cx2.getImageData(0, 0, r.can.width, r.can.height).data;
+        for(const fx of [0.3, 0.5, 0.7]){
+          const px = Math.floor(r.can.width*fx);
+          for(let py=0; py<r.can.height; py++){ if(data[(py*r.can.width + px)*4 + 3] > 120){ flowerSpots.push({ x: r.x + px/r.R, y: r.y + py/r.R + 4, el: e }); break; } }
+        }
+      }
+    }
+    out.sort((a,b) => a.baseY - b.baseY || a.i - b.i);
+    els = out; bgReady = true;
+    computeSpots();
+    $('loading').hidden = true;
+  }
+
+  function findStars(r){
+    const cw = r.can.width, ch = Math.min(r.can.height, Math.round(900*r.R));
+    const data = r.can.getContext('2d').getImageData(0, 0, cw, ch).data;
+    const seen = new Uint8Array(cw*ch), stack = new Int32Array(cw*ch);
+    for(let y=0;y<ch;y++) for(let x=0;x<cw;x++){
+      const i = y*cw + x;
+      if(seen[i] || data[i*4 + 3] < 28) continue;
+      let sp = 0, x0 = x, x1 = x, y0 = y, y1 = y, cnt = 0;
+      stack[sp++] = i; seen[i] = 1;
+      while(sp){
+        const j = stack[--sp], jx = j % cw, jy = (j - jx)/cw; cnt++;
+        if(jx < x0) x0 = jx; if(jx > x1) x1 = jx; if(jy < y0) y0 = jy; if(jy > y1) y1 = jy;
+        for(const k of [j-1, j+1, j-cw, j+cw]){
+          if(k < 0 || k >= cw*ch || seen[k]) continue;
+          if((k === j-1 && jx === 0) || (k === j+1 && jx === cw-1)) continue;
+          if(data[k*4 + 3] >= 28){ seen[k] = 1; stack[sp++] = k; }
+        }
+      }
+      if(x1 - x0 > 60*r.R || y1 - y0 > 60*r.R) continue;
+      const pad = Math.ceil(3*r.R), sx = Math.max(0, x0 - pad), sy = Math.max(0, y0 - pad);
+      const sw = Math.min(cw, x1 + pad + 1) - sx, sh = Math.min(r.can.height, y1 + pad + 1) - sy;
+      const s = document.createElement('canvas'); s.width = sw; s.height = sh;
+      s.getContext('2d').drawImage(r.can, sx, sy, sw, sh, 0, 0, sw, sh);
+      const big = cnt > 30*r.R*r.R;
+      stars.push({ can: s, x: r.x + sx/r.R, y: r.y + sy/r.R, w: sw/r.R, h: sh/r.R,
+        ph: rand(0, 6.28), f: rand(0.5, 2.0) * (big ? 0.7 : 1), low: big ? 0.45 : rand(0.15, 0.4) });
+    }
+  }
+
+  function drawSky(t){
+    if(!bgSky) return;
+    ctx.drawImage(bgSky.can, bgSky.x, bgSky.y, bgSky.w, bgSky.h);
+    const dim = 1 - rain.k*0.85;
+    for(const s of stars){
+      const tw = 0.5 + 0.5*Math.sin(t*s.f + s.ph);
+      ctx.globalAlpha = dim * (s.low + (1 - s.low)*tw*tw);
+      ctx.drawImage(s.can, s.x, s.y, s.w, s.h);
+    }
+    ctx.globalAlpha = 1;
+    const m = meteor;
+    if(m){
+      const p = (performance.now() - m.t0)/m.dur, travel = (p - 0.5)*m.dist;
+      const a = p < 0.2 ? p/0.2 : p > 0.65 ? Math.max(0, (1 - p)/0.35) : 1;
+      ctx.save(); ctx.globalAlpha = a*dim; ctx.globalCompositeOperation = 'screen';
+      ctx.drawImage(m.s.can, m.s.x + m.ox + METEOR_DIR[0]*travel, m.s.y + m.oy + METEOR_DIR[1]*travel, m.s.w, m.s.h);
+      ctx.restore();
+    }
+  }
+  function updateMeteor(now){
+    if(!meteorSprites.length) return;
+    if(meteor && now - meteor.t0 > meteor.dur) meteor = null;
+    if(!meteor && now > nextMeteor){
+      nextMeteor = now + rand(6000, 15000);
+      if(rain.k > 0.05) return;
+      meteor = { s: pick(meteorSprites), t0: now, dur: rand(750, 1150), ox: rand(-240, 240), oy: rand(-70, 40), dist: rand(380, 560) };
+    }
+  }
+
+  /* places for the girls: under the trees (rain) and behind the bushes (hide and seek) */
+  let shelterSpots = [], hideSpots = [];
+  function computeSpots(){
+    // in front of each tree and a little to the side of the trunk, so the girls stay visible
+    shelterSpots = [];
+    for(const e of els.filter(q => q.role === 'tree')){
+      for(const side of [-1, 1]){
+        const q = nearestInPoly(e.px + side*Math.min(140, e.w*0.2), Math.min(H - 40, e.baseY + 30));
+        if(q[1] >= e.baseY - 2) shelterSpots.push(q);
+      }
+    }
+    if(!shelterSpots.length) shelterSpots = els.filter(e => e.role === 'tree').map(e => nearestInPoly(e.px, e.baseY + 30));
+    hideSpots = [];
+    for(const e of els){
+      if(e.role !== 'plant' && e.role !== 'tree') continue;
+      if(e.h < 110 || e.w < 80) continue;
+      const q = nearestInPoly(e.px, e.baseY - 14);
+      if(q[1] < e.baseY - 4 && Math.abs(q[0] - e.px) < e.w*0.3) hideSpots.push({ x: q[0], y: q[1], el: e });
+    }
+  }
+
+  function drawElement(e, t){
+    let a = 0;
+    if(e.amp) a = Math.sin(t*e.freq + e.phase)*e.amp;
+    a += e.bend;
+    ctx.save();
+    if(a){
+      ctx.translate(e.px, e.py);
+      if(e.role === 'branch') ctx.rotate(a); else ctx.transform(1, 0, Math.tan(a), 1, 0, 0);
+      ctx.translate(-e.px, -e.py);
+    }
+    ctx.drawImage(e.can, e.x, e.y, e.w, e.h);
+    ctx.restore();
+  }
+
+  /* ---------- walking area ---------- */
+  function inPoly(x, y, poly){
+    let inside = false;
+    for(let i=0, j=poly.length-1; i<poly.length; j=i++){
+      const [xi,yi] = poly[i], [xj,yj] = poly[j];
+      if(((yi > y) !== (yj > y)) && (x < (xj - xi)*(y - yi)/(yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+  function polyInfo(){
+    const p = cfg.walk.length >= 3 ? cfg.walk : [[200,700],[1720,700],[1720,900],[200,900]];
+    const ys = p.map(q=>q[1]), xs = p.map(q=>q[0]);
+    return { p, yMin: Math.min(...ys), yMax: Math.max(...ys), xMin: Math.min(...xs), xMax: Math.max(...xs) };
+  }
+  function randomInPoly(filter){
+    const P = polyInfo();
+    for(let k=0;k<200;k++){ const x = rand(P.xMin, P.xMax), y = rand(P.yMin, P.yMax); if(inPoly(x,y,P.p) && (!filter || filter(x,y))) return [x,y]; }
+    for(let k=0;k<200;k++){ const x = rand(P.xMin, P.xMax), y = rand(P.yMin, P.yMax); if(inPoly(x,y,P.p)) return [x,y]; }
+    return [(P.xMin+P.xMax)/2, (P.yMin+P.yMax)/2];
+  }
+  function nearestInPoly(x, y){
+    const P = polyInfo(), p = P.p;
+    if(inPoly(x, y, p)) return [x, y];
+    let best = [x, y], bd = 1e18;
+    for(let i=0, j=p.length-1; i<p.length; j=i++){
+      const [ax, ay] = p[j], [bx, by] = p[i], dx = bx - ax, dy = by - ay, L = dx*dx + dy*dy || 1;
+      const t = clamp(((x - ax)*dx + (y - ay)*dy)/L, 0, 1), qx = ax + dx*t, qy = ay + dy*t, d = (qx - x)**2 + (qy - y)**2;
+      if(d < bd){ bd = d; best = [qx, qy]; }
+    }
+    // step a little inside
+    const cx = p.reduce((a, q) => a + q[0], 0)/p.length, cy = p.reduce((a, q) => a + q[1], 0)/p.length;
+    for(let k = 2; k < 60; k += 2){
+      const L = Math.hypot(cx - best[0], cy - best[1]) || 1, nx = best[0] + (cx - best[0])/L*k, ny = best[1] + (cy - best[1])/L*k;
+      if(inPoly(nx, ny, p)) return [nx, ny];
+    }
+    return best;
+  }
+  function depthScale(y){ const P = polyInfo(); return 0.55 + 0.45*clamp((y - P.yMin)/Math.max(1, P.yMax - P.yMin), 0, 1); }
+  function baseScale(def){ return cfg.size * def.sizeRatio / def.height; }
+
+  /* ---------- audio ---------- */
+  let ac = null, master = null, ambGain = null, girlsGain = null, noiseBuf = null;
+  const sfx = {};
+  let soundBusyUntil = 0;
+  const SFX = ['elephant','parrot1','parrot2','tongue','tiger','monkey','snake','frog','butterfly','toucan','ball','clap','giggle','laugh'];
+  function initAudio(){
+    if(ac) return;
+    try{
+      ac = new (window.AudioContext||window.webkitAudioContext)();
+      master = ac.createGain(); master.connect(ac.destination);
+      girlsGain = ac.createGain(); girlsGain.gain.value = 0.55; girlsGain.connect(master);
+      noiseBuf = ac.createBuffer(1, ac.sampleRate*2, ac.sampleRate);
+      const d = noiseBuf.getChannelData(0); let b = 0;
+      for(let i=0;i<d.length;i++){ b = 0.97*b + 0.03*(Math.random()*2-1); d[i] = b*6; }
+    }catch(_){ ac = null; return; }
+    for(const name of SFX){
+      fetch('media/'+name+'.mp3').then(r => r.ok ? r.arrayBuffer() : Promise.reject())
+        .then(b => new Promise((res, rej) => ac.decodeAudioData(b, res, rej))).then(buf => { sfx[name] = buf; }).catch(()=>{});
+    }
+    startAmbience();
+  }
+  function sfxMs(name, fallback){ return sfx[name] ? sfx[name].duration*1000 : (fallback || 1200); }
+  function soundFree(){ return performance.now() > soundBusyUntil && !video.active; }
+  function rawPlay(name, x, vol, dest){
+    const buf = sfx[name]; if(!ac || !buf) return;
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const g = ac.createGain(); g.gain.value = vol;
+    let node = src.connect(g);
+    if(ac.createStereoPanner && x !== undefined){ const p = ac.createStereoPanner(); p.pan.value = clamp((x/W)*2 - 1, -0.8, 0.8); node = node.connect(p); }
+    node.connect(dest || master); src.start();
+  }
+  /* animal sound: only one at a time; returns its length in ms, or 0 when another animal is calling */
+  function animalSound(name, x){
+    if(!name || !soundFree()) return 0;
+    const ms = sfxMs(name);
+    soundBusyUntil = performance.now() + ms + 600;
+    rawPlay(name, x, 0.85);
+    return ms;
+  }
+  function girlSound(name, x, vol){ rawPlay(name, x, vol || 0.9, girlsGain); }
+  function thump(vol){
+    if(!ac) return; const t = ac.currentTime;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(95,t); o.frequency.exponentialRampToValueAtTime(38,t+0.28);
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.6*vol,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);
+    o.connect(g).connect(master); o.start(t); o.stop(t+0.4);
+  }
+  function wind(dur){
+    if(!ac) return; const t = ac.currentTime;
+    const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+    const f = ac.createBiquadFilter(); f.type='bandpass'; f.Q.value=0.8;
+    f.frequency.setValueAtTime(250,t); f.frequency.linearRampToValueAtTime(1300,t+dur*0.35); f.frequency.linearRampToValueAtTime(350,t+dur);
+    const g = ac.createGain(); g.gain.setValueAtTime(0.0001,t);
+    g.gain.linearRampToValueAtTime(0.55,t+dur*0.3); g.gain.linearRampToValueAtTime(0.35,t+dur*0.6); g.gain.linearRampToValueAtTime(0.0001,t+dur);
+    s.connect(f).connect(g).connect(master); s.start(t); s.stop(t+dur+0.1);
+  }
+  const amb = { players: [], active: 0, fading: false };
+  function startAmbience(){
+    if(!ac) return;
+    ambGain = ac.createGain(); ambGain.gain.value = cfg.ambience; ambGain.connect(master);
+    for(let i=0;i<2;i++){
+      const el = new Audio('media/jungle.mp3'); el.preload = 'auto';
+      const src = ac.createMediaElementSource(el), g = ac.createGain(); g.gain.value = i === 0 ? 1 : 0;
+      src.connect(g).connect(ambGain);
+      amb.players.push({ el, g });
+    }
+    amb.players[0].el.play().catch(()=>{});
+  }
+  function audioTick(){
+    if(!ac) return;
+    if(amb.players.length){
+      const cur = amb.players[amb.active], nxt = amb.players[1 - amb.active], d = cur.el.duration;
+      if(!amb.fading && isFinite(d) && d > 12 && cur.el.currentTime > d - 5){
+        amb.fading = true; const t = ac.currentTime;
+        nxt.el.currentTime = 0; nxt.el.play().catch(()=>{});
+        nxt.g.gain.cancelScheduledValues(t); nxt.g.gain.setValueAtTime(0, t); nxt.g.gain.linearRampToValueAtTime(1, t + 4);
+        cur.g.gain.cancelScheduledValues(t); cur.g.gain.setValueAtTime(1, t); cur.g.gain.linearRampToValueAtTime(0, t + 4);
+        setTimeout(() => { cur.el.pause(); amb.active = 1 - amb.active; amb.fading = false; }, 4300);
+      }
+      if(cur.el.paused && !amb.fading && cur.el.readyState >= 2) cur.el.play().catch(()=>{});
+    }
+    // girls duck while an animal is calling
+    if(girlsGain){ const target = video.active ? 0.4 : soundFree() ? 0.55 : 0.22; girlsGain.gain.value += (target - girlsGain.gain.value)*0.08; }
+  }
+  function setAmbienceLevel(){
+    if(!ambGain) return;
+    const t = ac.currentTime, v = cfg.ambience * (video.active ? 0.12 : storm ? 0.4 : 1);
+    ambGain.gain.cancelScheduledValues(t); ambGain.gain.setValueAtTime(ambGain.gain.value, t); ambGain.gain.linearRampToValueAtTime(v, t + 0.8);
+  }
+
+  /* ---------- animals ---------- */
+  let animals = [], parts = [], queue = [], storm = null;
+  const perchTaken = new Map(), spotTaken = new Map();
+
+  function spawn(kind, layerImg, photoImg){
+    if(video.active || video.fading){ held.push([kind, layerImg, photoImg]); return; }
+    const def = ANIMALS[kind] || ANIMALS.elephant;
+    const item = { def, baked: Figure.bake(def, layerImg), photo: photoImg || null };
+    if(storm){ queue.push(item); return; }
+    if(animals.length >= MAX){ queue.push(item); startStorm(); return; }
+    enter(item);
+  }
+
+  function releaseHeld(){
+    held.splice(0, held.length).forEach((h, i) => setTimeout(() => spawn(h[0], h[1], h[2]), 600 + i*1500));
+  }
+  let uidCounter = 0, sceneTimer = 0;
+  function thumbOf(def, baked){
+    try {
+      const S = 160, c = document.createElement('canvas'); c.width = c.height = S;
+      const x = c.getContext('2d'), [vx, vy, vw, vh] = def.view, k = Math.min(S/vw, S/vh)*0.92;
+      x.setTransform(k, 0, 0, k, (S - vw*k)/2 - vx*k, (S - vh*k)/2 - vy*k);
+      Figure.drawBaked(x, def, baked, def.pose({ mode: def.flyer ? (def.hanger ? 'hang' : 'perch') : 'idle', time: 0, phase: 0, seed: 0 }), { shadow: false });
+      return c.toDataURL('image/webp', 0.8);
+    } catch(_) { return null; }
+  }
+  function reportScene(){
+    clearTimeout(sceneTimer);
+    sceneTimer = setTimeout(() => {
+      const list = animals.map(a => ({ uid: String(a.uid), kind: a.kind, thumb: a.thumb }));
+      fetch('/api/scene', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ animals: list }) }).catch(() => {});
+    }, 300);
+  }
+  function enter(item){
+    const def = item.def, now = performance.now();
+    const a = { def, baked: item.baked, photo: item.photo, kind: def.id, beh: def.behavior, time: rand(0,10), phase: rand(0,6), seed: rand(0,10),
+      rot: 0, squash: 0, dir: Math.random() < 0.5 ? 1 : -1, look: 0, tongue: 0, call: 0, act: null, uid: ++uidCounter, thumb: thumbOf(def, item.baked) };
+    const ex = cfg.entryX*W;
+    if(def.flyer){
+      a.s = baseScale(def); a.x = ex; a.y = H + 160;
+      if(a.beh === 'butterfly') { a.mode = 'fly'; a.target = airPoint(); a.nextLand = now + rand(4000, 9000); }
+      else flyTo(a, pickPerch(a), now);
+    } else {
+      const [tx, ty] = randomInPoly((x) => Math.abs(x - ex) < 320);
+      const s = baseScale(def) * depthScale(ty);
+      a.x = ex; a.y = H + def.height*s*1.6; a.s = s*1.5;
+      a.mode = 'air'; a.t0 = now; a.dur = 1300;
+      a.from = { x: a.x, y: a.y, s: a.s }; a.to = { x: tx, y: ty, s };
+      const w = def.walk || { speed: [40, 60], stride: 20 };
+      a.speed = rand(w.speed[0], w.speed[1]); a.stride = w.stride;
+      a.nextIdle = now + rand(6000, 12000);
+      a.nextSpecial = Infinity;
+    }
+    animals.push(a);
+    reportScene();
+  }
+
+  /* --- perches (birds stand on them, the monkey hangs from them) --- */
+  function pickPerch(a){
+    const list = cfg.perches.map((p,i) => i).filter(i => !perchTaken.has(i) || perchTaken.get(i) === a);
+    const others = list.filter(i => i !== a.perch);
+    const pool = others.length ? others : list;
+    if(!pool.length){ const [x,y] = randomInPoly(); return { x, y, idx: -1, ground: true }; }
+    const i = pick(pool);
+    return { x: cfg.perches[i][0], y: cfg.perches[i][1] + (a.def.hanger ? 6 : 0), idx: i, ground: false };
+  }
+  function flyTo(a, target, now){
+    if(a.perch !== undefined && perchTaken.get(a.perch) === a) perchTaken.delete(a.perch);
+    if(target.idx >= 0) perchTaken.set(target.idx, a);
+    a.perch = target.idx; a.ground = target.ground;
+    a.mode = 'fly'; a.t0 = now;
+    a.from = { x: a.x, y: a.y }; a.to = { x: target.x, y: target.y };
+    const dist = Math.hypot(a.to.x - a.from.x, a.to.y - a.from.y);
+    a.dur = Math.max(1400, dist / (a.def.hanger ? 0.6 : 0.45));
+    a.ctrl = { x: (a.from.x + a.to.x)/2 + rand(-120,120), y: Math.min(a.from.y, a.to.y) - rand(160, 300) };
+    a.dir = a.to.x >= a.from.x ? 1 : -1;
+  }
+  function airPoint(){ return { x: rand(150, W-150), y: rand(120, 650) }; }
+
+  function dust(x,y,s){
+    for(let i=0;i<18;i++){
+      const ang = rand(Math.PI*1.05, Math.PI*1.95);
+      parts.push({ x: x+rand(-50,50)*s, y: y-4, vx: Math.cos(ang)*rand(60,200)*s, vy: Math.sin(ang)*rand(30,110)*s, g: 90,
+        life: rand(0.6,1.1), age:0, size: rand(8,18)*s, col:'rgba(235,228,205,1)', round:true });
+    }
+  }
+
+  function startStorm(){
+    if(storm) return;
+    storm = { t:0, exploded:false };
+    wind(5.4); setAmbienceLevel();
+    for(const a of animals){ a.mode = 'lift'; a.liftDir = Math.random()<0.5?-1:1; a.baseY = a.y; a.baseX = a.x; a.act = null; }
+    perchTaken.clear(); spotTaken.clear();
+  }
+
+  function explode(a, step){
+    const def = a.def, pose = def.pose({ mode:'idle', time:a.time, phase:a.phase, seed:a.seed });
+    const off = document.createElement('canvas'); off.width = def.size[0]; off.height = def.size[1];
+    const o = off.getContext('2d');
+    Figure.drawBaked(o, def, a.baked, pose, { shadow:false });
+    const img = o.getImageData(0,0,off.width,off.height).data;
+    step = step || 4;
+    const [ax,ay] = def.anchor, k = a.s, c = Math.cos(a.rot), s = Math.sin(a.rot);
+    for(let y=0;y<off.height;y+=step){
+      for(let x=0;x<off.width;x+=step){
+        const i = (y*off.width + x)*4; if(img[i+3] < 140) continue;
+        const lx = (x - ax)*k*a.dir, ly = (y - ay)*k;
+        parts.push({ x: a.x + lx*c - ly*s, y: a.y + lx*s + ly*c, vx: rand(280,650), vy: rand(-150,70), g:-20, life: rand(2.4,4.0), age:0,
+          size: rand(3,6)*k*1.5*(step > 4 ? 1.12 : 1), col:`rgb(${img[i]},${img[i+1]},${img[i+2]})`, wob: rand(0,6.28), streak:true });
+      }
+    }
+  }
+
+  /* actions: the animal stops, does something and maybe makes its sound */
+  function startAct(a, type, ms, sound){
+    const now = performance.now();
+    let len = ms;
+    if(sound){ const s = animalSound(sound, a.x); if(!s) return false; len = Math.max(ms, s + 300); }
+    a.act = { type, start: now, end: now + len, sound: !!sound };
+    return true;
+  }
+  function actProgress(a){ const now = performance.now(); return a.act ? clamp((now - a.act.start)/(a.act.end - a.act.start), 0, 1) : 0; }
+  function bell(p, inT, outT){ return clamp(Math.min(p/inT, (1-p)/outT), 0, 1); }
+
+  /* ---------- update ---------- */
+  let lastT = performance.now();
+  function frame(now){
+    const dt = Math.min(0.05,(now-lastT)/1000); lastT = now;
+    update(dt, now); draw(now);
+    requestAnimationFrame(frame);
+  }
+
+  function update(dt, now){
+    audioTick();
+    updateRain(dt, now);
+    updateMeteor(now);
+    updateVideo(dt);
+    if(storm){
+      storm.t += dt;
+      const T = storm.t;
+      if(!storm.exploded){
+        for(const a of animals){
+          a.time += dt;
+          const e = Math.min(1, T/1.1);
+          a.y = a.baseY - e*e*120*a.s;
+          a.x = a.baseX + e*e*70;
+          a.rot = Math.sin(T*16 + a.phase)*0.06*e + a.liftDir*e*e*0.35;
+        }
+        if(T >= 1.1){ const st = animals.length > 10 ? 5 : 4; for(const a of animals) explode(a, st); animals = []; storm.exploded = true; reportScene(); }
+      } else if(T > 5.4 && parts.length === 0){
+        storm = null; setAmbienceLevel();
+        if(queue.length) enter(queue.shift());
+        queue.splice(0, Math.max(0, queue.length - (MAX-1)));
+        while(queue.length && animals.length < MAX) enter(queue.shift());
+      }
+    }
+
+    for(const a of animals){
+      if(a.mode === 'lift') continue;
+      a.time += dt;
+      if(a.beh === 'bird' || a.beh === 'monkey'){ updatePercher(a, dt, now); continue; }
+      if(a.beh === 'butterfly'){ updateButterfly(a, dt, now); continue; }
+
+      if(a.mode === 'air'){
+        const p = Math.min(1,(now - a.t0)/a.dur);
+        a.x = a.from.x + (a.to.x - a.from.x)*p;
+        a.y = a.from.y + (a.to.y - a.from.y)*p - Math.sin(Math.PI*p)*Math.max(300, (a.from.y-a.to.y)*0.8);
+        a.s = a.from.s + (a.to.s - a.from.s)*p;
+        a.rot = Math.sin(Math.PI*p)*-0.12*a.dir;
+        if(p >= 1){
+          a.rot=0; a.y=a.to.y; a.s=a.to.s; a.squash=1; dust(a.x,a.y,a.s); thump(Math.min(1,a.s*1.2));
+          a.mode = a.beh === 'hopper' ? 'sit' : 'walk';
+          if(a.beh === 'hopper') a.nextHop = now + rand(800, 2000); else newTarget(a);
+          a.nextSpecial = now + (['elephant','tiger'].includes(a.kind) ? 450 : rand(4000, 9000));
+        }
+        continue;
+      }
+      if(a.squash > 0) a.squash = Math.max(0, a.squash - dt*5);
+
+      if(a.beh === 'chameleon' && updateTongue(a, now)) continue;
+      if(a.act){
+        updateAct(a, now);
+        continue;
+      }
+      if(now > a.nextSpecial && a.mode !== 'hop'){ if(trySpecial(a, now)) continue; }
+
+      if(a.beh === 'hopper'){ updateHopper(a, dt, now); continue; }
+
+      if(a.mode === 'walk'){
+        const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
+        const v = a.speed * baseScale(a.def) * depthScale(a.y);
+        if(d < 4){
+          if(Math.random() < 0.35){ a.mode = 'idle'; a.idleUntil = now + rand(1800, 4000);
+            if(a.kind === 'tiger' && Math.random() < 0.5){ a.act = { type:'yawn', start: now, end: now + 3000 }; } }
+          else newTarget(a);
+        } else {
+          const step = Math.min(d, v*dt*1.6);
+          a.x += dx/d*step; a.y += dy/d*step;
+          if(Math.abs(dx) > 2) a.dir = dx > 0 ? 1 : -1;
+          a.phase += step / (a.stride * a.s);
+        }
+        a.s = baseScale(a.def) * depthScale(a.y);
+      } else if(a.mode === 'idle'){
+        if(now > a.idleUntil){ a.mode = 'walk'; newTarget(a); }
+      }
+    }
+
+    // plants bend away from animals and girls passing close by
+    const walkers = animals.filter(a => (!a.def.flyer || a.ground) && a.mode !== 'air' && a.mode !== 'lift')
+      .map(a => ({ x: a.x, y: a.y, s: a.s })).concat(girls.map(g => ({ x: g.x, y: g.y, s: g.s*2.2 })));
+    for(const e of els){
+      if(e.role !== 'plant') continue;
+      let target = 0;
+      for(const a of walkers){
+        const reach = e.w*0.5 + 70*a.s, dx = a.x - e.px;
+        if(Math.abs(dx) < reach && a.y > e.baseY - 150 && a.y < e.baseY + 90){
+          target += (dx < 0 ? -1 : 1) * (1 - Math.abs(dx)/reach) * 7 * DEG;
+        }
+      }
+      target = clamp(target, -9*DEG, 9*DEG);
+      e.bend += (target - e.bend) * Math.min(1, dt*4);
+    }
+
+    updateGirls(dt, now);
+
+    for(const p of parts){
+      p.age += dt;
+      if(p.streak){ p.vy += Math.sin(p.age*3 + p.wob)*160*dt; p.vx += 80*dt; }
+      p.vy += p.g*dt; p.x += p.vx*dt; p.y += p.vy*dt;
+      if(p.round){ p.vx *= (1-2.5*dt); p.vy *= (1-2.5*dt); p.size *= (1+0.9*dt); }
+    }
+    parts = parts.filter(p => p.age < p.life && p.x < W+200);
+  }
+
+  function newTarget(a){
+    const diagonal = Math.random() < 0.5;
+    const [x,y] = randomInPoly((tx,ty) => {
+      const dx = Math.abs(tx - a.x), dy = Math.abs(ty - a.y);
+      return dx > 160 && (diagonal ? dy < dx*0.55 && dy > 40 : dy < 40);
+    });
+    a.tx = x; a.ty = y;
+  }
+
+  /* special moves for ground animals */
+  function trySpecial(a, now){
+    let ok = false;
+    switch(a.kind){
+      case 'elephant': ok = startAct(a, 'call', 2000, 'elephant'); if(ok) a.act.end += 400; break;
+      case 'tiger': ok = startAct(a, 'call', 1600, 'tiger'); break;
+      case 'snake': ok = startAct(a, 'hiss', 2200, 'snake'); break;
+      case 'frog': ok = startAct(a, 'croak', 1400, 'frog'); break;
+      case 'turtle': a.act = { type:'hide', start: now, end: now + rand(3500, 5500) }; ok = true; break;
+    }
+    if(ok){ a.nextSpecial = Infinity; }
+    else a.nextSpecial = now + rand(1500, 4000);
+    return ok;
+  }
+  function specialDelay(kind){
+    return { elephant:[20000,40000], tiger:[25000,45000], snake:[10000,18000], frog:[6000,12000], turtle:[12000,20000] }[kind] || [15000,30000];
+  }
+  function updateAct(a, now){
+    if(now > a.act.end){
+      a.act = null;
+      const [lo, hi] = specialDelay(a.kind);
+      a.nextSpecial = now + rand(lo, hi);
+      if(a.beh === 'hopper'){ a.mode = 'sit'; a.nextHop = now + rand(600, 1500); }
+      else { a.mode = 'walk'; newTarget(a); }
+    }
+  }
+
+  function updateHopper(a, dt, now){
+    if(a.mode === 'sit'){
+      if(now > a.nextHop){
+        const [tx, ty] = randomInPoly((x,y) => { const d = Math.hypot(x - a.x, y - a.y); return d > 90 && d < 230; });
+        a.mode = 'hop'; a.t0 = now; a.dur = 620; a.from = { x: a.x, y: a.y }; a.to = { x: tx, y: ty };
+        a.dir = tx > a.x ? 1 : -1;
+      }
+      return;
+    }
+    if(a.mode === 'hop'){
+      const p = Math.min(1, (now - a.t0)/a.dur);
+      a.x = a.from.x + (a.to.x - a.from.x)*p;
+      const gy = a.from.y + (a.to.y - a.from.y)*p;
+      a.s = baseScale(a.def) * depthScale(gy);
+      a.y = gy - Math.sin(Math.PI*p) * 70 * a.s;
+      a.hopGround = gy;
+      if(p >= 1){ a.y = a.to.y; a.mode = 'sit'; a.squash = 0.8; a.nextHop = now + rand(900, 2600); }
+    }
+  }
+
+  function updateTongue(a, now){
+    if(a.mode === 'look' || a.mode === 'tongue'){
+      const t = now - a.seqStart;
+      a.look = clamp(t/400, 0, 1);
+      if(a.mode === 'look' && t > 1100){
+        if(soundFree()){
+          const ms = animalSound('tongue', a.x) || 900;
+          a.mode = 'tongue'; a.tongueStart = now; a.tongueDur = Math.max(500, ms);
+        } else if(t > 6000){ a.mode = 'walk'; a.look = 0; a.nextSpecial = now + rand(5000, 9000); newTarget(a); }
+      }
+      if(a.mode === 'tongue'){
+        const q = (now - a.tongueStart)/a.tongueDur;
+        a.tongue = q < 0.18 ? q/0.18 : q < 0.7 ? 1 : q < 1 ? 1 - (q - 0.7)/0.3 : 0;
+        if(q >= 1.35){ a.mode = 'walk'; a.tongue = 0; a.look = 0; a.nextSpecial = now + rand(8000, 16000); newTarget(a); }
+      }
+      return true;
+    }
+    if(now > a.nextSpecial && (a.mode === 'walk' || a.mode === 'idle')){ a.mode = 'look'; a.seqStart = now; return true; }
+    return false;
+  }
+
+  function updatePercher(a, dt, now){
+    if(a.mode === 'fly'){
+      const p = Math.min(1, (now - a.t0)/a.dur), e = p*p*(3-2*p), u = 1 - e;
+      const nx = u*u*a.from.x + 2*u*e*a.ctrl.x + e*e*a.to.x, ny = u*u*a.from.y + 2*u*e*a.ctrl.y + e*e*a.to.y;
+      if(Math.abs(nx - a.x) > 0.5) a.dir = nx > a.x ? 1 : -1;
+      a.x = nx; a.y = ny;
+      a.rot = a.def.hanger ? Math.sin(Math.PI*p)*0.4*a.dir : Math.sin(Math.PI*p)*-0.1*a.dir;
+      if(a.ground) a.s = baseScale(a.def) * depthScale(a.y);
+      if(p >= 1){
+        a.mode = 'perch'; a.rot = 0; a.squash = 0.6; a.swing = a.def.hanger ? 0.45 : 0;
+        a.nextMove = now + rand(a.def.hanger ? 15000 : 20000, a.def.hanger ? 30000 : 40000);
+        a.nextCall = now + 300;
+      }
+      return;
+    }
+    if(a.squash > 0) a.squash = Math.max(0, a.squash - dt*4);
+    if(a.def.hanger){
+      a.swing += (0.12 - a.swing)*dt*0.5;
+      a.rot = Math.sin(a.time*1.7 + a.seed) * a.swing;
+    }
+    if(a.act && now > a.act.end) a.act = null;
+    if(rain.active){ a.nextMove = Math.max(a.nextMove, now + 4000); a.nextCall = Math.max(a.nextCall, now + 3000); }
+    if(now > a.nextCall){
+      if(startAct(a, 'call', 900, pick(a.def.sounds))){ a.nextCall = now + rand(15000, 30000); if(a.def.hanger) a.swing = 0.35; }
+      else a.nextCall = now + rand(1500, 4000);
+    }
+    if(now > a.nextMove) flyTo(a, pickPerch(a), now);
+  }
+
+  function updateButterfly(a, dt, now){
+    if(a.mode === 'fly'){
+      const dx = a.target.x - a.x, dy = a.target.y - a.y, d = Math.hypot(dx, dy);
+      const v = 160;
+      if(d < 12){
+        if(a.landing){ a.mode = 'rest'; a.restUntil = now + rand(5000, 11000); a.x = a.target.x; a.y = a.target.y; a.rot = 0; return; }
+        a.target = airPoint();
+      } else {
+        a.x += dx/d*v*dt + Math.sin(a.time*3 + a.seed)*25*dt;
+        a.y += dy/d*v*dt + Math.cos(a.time*4.3 + a.seed)*40*dt;
+        if(Math.abs(dx) > 3) a.dir = dx > 0 ? 1 : -1;
+        a.rot = Math.sin(a.time*2.6)*0.12;
+      }
+      if(rain.active && !a.landing) a.nextLand = 0;
+      if(!a.landing && now > a.nextLand){
+        const free = flowerSpots.filter(s => !spotTaken.has(s));
+        if(free.length){ const s = pick(free); spotTaken.set(s, a); a.spot = s; a.target = { x: s.x, y: s.y }; a.landing = true; }
+        else a.nextLand = now + 5000;
+      }
+      return;
+    }
+    if(a.mode === 'rest'){
+      if(a.spot){ a.x = a.spot.x; }
+      if(rain.active) a.restUntil = Math.max(a.restUntil, now + 2500);
+      if(now > a.restUntil){
+        if(a.spot) spotTaken.delete(a.spot); a.spot = null;
+        a.landing = false; a.mode = 'fly'; a.target = airPoint(); a.nextLand = now + rand(6000, 12000);
+        animalSound('butterfly', a.x);
+      }
+    }
+  }
+
+  /* ---------- the two girls ---------- */
+  const girls = [];
+  const duo = { mode: 'rest', until: 0, game: null, order: [], t0: 0, ball: null, lastClap: -1, giggled: false };
+  const ctrl = { who: 'both', vec: { x: 0, y: 0 }, vecAt: 0, duoAct: null };
+  async function loadGirls(){
+    const defs = [{ id: 'girl1', ratio: 1 }, { id: 'girl2', ratio: 0.78 }];
+    for(const [i, gd] of defs.entries()){
+      const meta = await fetch(`media/girls/${gd.id}/parts.json`).then(r => r.json());
+      const load = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+      const baked = [], dparts = [];
+      for(const p of meta.parts){
+        const part = { id: p.id, pivot: p.pivot, box: { x: p.x, y: p.y, w: p.w, h: p.h }, ebox: { x: p.x, y: p.y, w: p.w, h: p.h } };
+        dparts.push(part);
+        const art = await load(`media/girls/${gd.id}/${p.id}.png`);
+        baked.push({ part, art, edge: art });   // no white edge: the soft shadow follows the photo itself
+      }
+      const bx0 = Math.min(...meta.parts.map(p => p.x)) - 20, by0 = Math.min(...meta.parts.map(p => p.y)) - 20;
+      const bx1 = Math.max(...meta.parts.map(p => p.x + p.w)) + 20, by1 = Math.max(...meta.parts.map(p => p.y + p.h)) + 20;
+      const def = { id: gd.id, size: [bx1, by1], bounds: [bx0, by0, bx1, by1], parts: dparts };
+      const home = cfg.girls[i] || cfg.girls[0];
+      girls.push({ meta, def, baked, ratio: gd.ratio, x: home[0], y: home[1], tx: home[0], ty: home[1], s: 0.3, time: rand(0,5), phase: 0,
+        pose: { armL: 0, armR: 0, legL: 0, legR: 0, head: 0 }, rot: 0, bob: 0, sx: 1, sink: 0, act: null, idx: i, onTop: false });
+    }
+    duo.until = performance.now() + 3000;
+  }
+  function girlScale(g){ return cfg.girlSize * g.ratio * depthScale(g.y) / g.meta.height; }
+  function handPoint(g, side){
+    // world position of a hand, following the arm rotation
+    const p = g.def.parts.find(q => q.id === side), hand = g.meta[side + '_hand'], ang = g.pose[side];
+    const c = Math.cos(ang), s = Math.sin(ang);
+    const hx = p.pivot[0] + (hand[0] - p.pivot[0])*c - (hand[1] - p.pivot[1])*s;
+    const hy = p.pivot[1] + (hand[0] - p.pivot[0])*s + (hand[1] - p.pivot[1])*c;
+    const [ax, ay] = g.meta.anchor;
+    return { x: g.x + (hx - ax)*g.s, y: g.y + (hy - ay)*g.s + g.bob };
+  }
+  const homeOf = g => cfg.girls[g.idx] || cfg.girls[0];
+  function resetGirl(g){ g.act = null; g.sink = 0; g.sx = 1; }
+  function sendHome(){
+    for(const g of girls){ const h = homeOf(g); g.tx = h[0]; g.ty = h[1]; resetGirl(g); }
+    duo.ball = null; ctrl.duoAct = null; duo.mode = 'leave';
+  }
+  function walkPose(g){ const w = Math.sin(g.phase*6); g.pose.legL = w*9*DEG; g.pose.legR = -w*9*DEG; g.pose.armL = -w*10*DEG; g.pose.armR = -w*10*DEG; g.bob = -Math.abs(w)*5*g.s*3; g.rot = w*0.02; g.pose.head = w*2*DEG; }
+  function idlePose(g){ const s = Math.sin(g.time*1.6 + g.idx*1.3); g.pose.legL = 0; g.pose.legR = 0; g.pose.armL = (6 + s*4)*DEG; g.pose.armR = (-6 - s*4)*DEG; g.bob = 0; g.rot = s*0.035; g.pose.head = s*4*DEG; }
+  function walkTo(g, dt, speed){
+    const dx = g.tx - g.x, dy = g.ty - g.y, d = Math.hypot(dx, dy), v = (speed || 85) * depthScale(g.y);
+    if(d < 3){ g.x = g.tx; g.y = g.ty; return true; }
+    const step = Math.min(d, v*dt); g.x += dx/d*step; g.y += dy/d*step; g.phase += step / (14 * g.s * 6);
+    return false;
+  }
+  const GAMES = ['ball', 'spin', 'clap'];
+  function nextGame(){
+    if(!duo.order.length){ duo.order = GAMES.slice().sort(() => Math.random() - 0.5); if(duo.order[0] === duo.game) duo.order.push(duo.order.shift()); }
+    return duo.order.shift();
+  }
+  function startApproach(now, game){
+    duo.game = game || nextGame();
+    const [A, B] = girls, mx = (cfg.girls[0][0] + cfg.girls[1][0])/2, my = (cfg.girls[0][1] + cfg.girls[1][1])/2;
+    const sA = girlScale(A), wA = A.meta.width * sA;
+    const gap = duo.game === 'ball' ? wA*2.2 : duo.game === 'spin' ? wA*0.95 : wA*1.35;
+    A.tx = mx - gap/2; A.ty = my; B.tx = mx + gap/2; B.ty = my;
+    duo.center = { x: mx, y: my }; duo.gap = gap;
+    duo.mode = 'approach';
+  }
+  const autoMode = () => ['rest','approach','game','outro','leave'].includes(duo.mode);
+
+  /* ball between two girls: the left girl uses her right-hand side, the right girl her left */
+  function ballStep(t, A, B){
+    const L = A.x <= B.x ? A : B, Rg = L === A ? B : A;
+    const period = 1.5, k = Math.floor(t/period), q = (t % period)/period;
+    const thrower = k % 2 === 0 ? L : Rg, catcher = thrower === L ? Rg : L;
+    const arm = g => g === L ? 'armR' : 'armL';
+    const reach = (g, amount) => { if(g === L) g.pose.armR = -amount*DEG; else g.pose.armL = amount*DEG; };
+    for(const g of [A, B]){ idlePose(g); g.rot = 0; }
+    reach(thrower, q < 0.25 ? 40 + q/0.25*80 : 120 - Math.min(1, (q-0.25)/0.3)*90);
+    reach(catcher, q < 0.6 ? 30 : 30 + (q - 0.6)/0.4*60);
+    const sz = 15*A.s*2.4;
+    if(q >= 0.22){
+      const p = clamp((q - 0.22)/0.7, 0, 1);
+      const h1 = handPoint(thrower, arm(thrower)), h2 = handPoint(catcher, arm(catcher));
+      duo.ball = { x: h1.x + (h2.x - h1.x)*p, y: h1.y + (h2.y - h1.y)*p - Math.sin(Math.PI*p)*160*A.s*2.4, r: sz, spin: t*8 };
+      if(p >= 1 && duo.lastClap !== k){ duo.lastClap = k; girlSound('ball', h2.x); }
+    } else {
+      const h = handPoint(thrower, arm(thrower));
+      duo.ball = { x: h.x, y: h.y - 10*A.s*2.4, r: sz, spin: t*8 };
+    }
+  }
+
+  function updateGirls(dt, now){
+    if(girls.length < 2) return;
+    const [A, B] = girls;
+    for(const g of girls){ g.time += dt; g.s = girlScale(g); }
+
+    // rain: the girls run under a tree (only when they are on their own)
+    if(rain.k > 0.25 && autoMode() && duo.mode !== 'shelter') startShelter();
+    if(duo.mode === 'shelter'){
+      let all = true;
+      for(const g of girls){ resetGirl(g); if(walkTo(g, dt, 175)) idlePose(g), g.arrived = true; else { walkPose(g); all = false; } }
+      if(all) for(const g of girls){ const s = Math.sin(g.time*24); g.pose.armL = (150 + s*3)*DEG; g.pose.armR = (-150 - s*3)*DEG; g.rot = s*0.012; g.pose.head = -4*DEG; }
+      if(!rain.active || rain.k < 0.05) sendHome();
+      return;
+    }
+    if(duo.mode === 'ctrl'){ updateControl(dt, now); return; }
+    if(duo.mode === 'tovideo' || duo.mode === 'video'){ updateVideoGirls(dt, now); return; }
+
+    if(duo.mode === 'rest'){
+      for(const g of girls) idlePose(g);
+      if(now > duo.until) startApproach(now);
+      return;
+    }
+    if(duo.mode === 'approach' || duo.mode === 'leave'){
+      const doneA = walkTo(A, dt), doneB = walkTo(B, dt);
+      for(const g of girls){ if(Math.hypot(g.tx - g.x, g.ty - g.y) > 3) walkPose(g); else idlePose(g); }
+      if(doneA && doneB){
+        if(duo.mode === 'approach'){ duo.mode = 'game'; duo.t0 = now; duo.ball = null; duo.lastClap = -1; duo.giggled = false; duo.theta = 0; }
+        else { duo.mode = 'rest'; duo.until = now + rand(5000, 9000); }
+      }
+      return;
+    }
+    if(duo.mode === 'outro'){
+      const t = (now - duo.t0)/1000;
+      for(const g of girls){ idlePose(g); const h = Math.abs(Math.sin(t*Math.PI*2.4)); g.bob = -h*18*g.s*2; g.pose.armL = 150*DEG*h; g.pose.armR = -150*DEG*h; }
+      if(t > 1.8){ A.tx = cfg.girls[0][0]; A.ty = cfg.girls[0][1]; B.tx = cfg.girls[1][0]; B.ty = cfg.girls[1][1]; duo.mode = 'leave'; }
+      return;
+    }
+    // games
+    const t = (now - duo.t0)/1000;
+    let len = 10;
+    if(duo.game === 'ball'){
+      len = 10;
+      ballStep(t, A, B);
+    } else if(duo.game === 'spin'){
+      len = 8;
+      if(!duo.giggled){ duo.giggled = true; girlSound('giggle', duo.center.x, 0.8); }
+      const turns = 2, e = clamp(t/len, 0, 1), th = Math.PI*2*turns*(e*e*(3-2*e));
+      const R = duo.gap/2;
+      A.x = duo.center.x - Math.cos(th)*R; A.y = duo.center.y - Math.sin(th)*R*0.3;
+      B.x = duo.center.x + Math.cos(th)*R; B.y = duo.center.y + Math.sin(th)*R*0.3;
+      for(const g of girls){
+        idlePose(g);
+        const other = g === A ? B : A, right = other.x > g.x;
+        g.pose.armL = right ? 25*DEG : 80*DEG; g.pose.armR = right ? -80*DEG : -25*DEG;
+        g.rot = (right ? -1 : 1) * 0.08; g.phase += dt*3; const w = Math.sin(g.phase*4); g.pose.legL = w*8*DEG; g.pose.legR = -w*8*DEG;
+      }
+    } else if(duo.game === 'clap'){
+      len = 9;
+      const cyc = t % 3;
+      if(cyc < 1.6){
+        // four claps, both girls together
+        const c = cyc/0.4, k = Math.floor(c), f = c - k, closed = Math.sin(f*Math.PI);
+        for(const g of girls){ idlePose(g); g.pose.armL = (10 - closed*42)*DEG; g.pose.armR = (-10 + closed*42)*DEG; g.rot = 0; }
+        const id = Math.floor(t/3)*10 + k;
+        if(f > 0.45 && duo.lastClap !== id){ duo.lastClap = id; girlSound('clap', duo.center.x, 1); }
+      } else {
+        // dance: arms up in turn, little hops
+        const d = (cyc - 1.6)/1.4, w = Math.sin(d*Math.PI*4);
+        for(const g of girls){
+          g.pose.armL = (90 + w*60)*DEG; g.pose.armR = (-90 + w*60)*DEG;
+          g.pose.legL = w*10*DEG; g.pose.legR = w*10*DEG; g.rot = w*0.07; g.bob = -Math.abs(Math.sin(d*Math.PI*4))*12*g.s*2.5;
+          g.pose.head = w*6*DEG;
+        }
+      }
+    }
+    if(t > len){
+      duo.mode = 'outro'; duo.t0 = now; duo.ball = null; girlSound('laugh', duo.center.x, 0.9);
+    }
+  }
+
+  function startShelter(){
+    const spots = shelterSpots.length ? shelterSpots : [homeOf(girls[0])];
+    const used = new Set();
+    for(const g of girls){
+      let best = 0, bd = 1e9;
+      spots.forEach((s, i) => { if(used.has(i) && spots.length > 1) return; const d = Math.hypot(s[0] - g.x, s[1] - g.y); if(d < bd){ bd = d; best = i; } });
+      used.add(best);
+      const s = spots[best];
+      let tx = s[0] + (spots.length === 1 ? (g.idx ? 45 : -45) : 0), ty = s[1];
+      if(!inPoly(tx, ty, polyInfo().p)) [tx, ty] = s;
+      g.tx = tx; g.ty = ty; resetGirl(g); g.arrived = false;
+    }
+    duo.ball = null; duo.mode = 'shelter';
+  }
+
+  /* ---------- a child plays with the girls from the phone ---------- */
+  function startControl(who){
+    if(girls.length < 2) return;
+    ctrl.who = ['girl1','girl2','both'].includes(who) ? who : 'both';
+    ctrl.vec = { x: 0, y: 0 }; ctrl.duoAct = null;
+    for(const g of girls){ resetGirl(g); g.tx = g.x; g.ty = g.y; }
+    duo.ball = null; duo.mode = 'ctrl';
+  }
+  function endControl(){ if(duo.mode === 'ctrl') sendHome(); }
+  const isSelected = g => ctrl.who === 'both' || ctrl.who === 'girl' + (g.idx + 1);
+  function moveInside(g, dx, dy){
+    const P = polyInfo().p;
+    if(!inPoly(g.x, g.y, P)){ g.x += dx; g.y += dy; return; }
+    if(inPoly(g.x + dx, g.y + dy, P)){ g.x += dx; g.y += dy; }
+    else if(inPoly(g.x + dx, g.y, P)) g.x += dx;
+    else if(inPoly(g.x, g.y + dy, P)) g.y += dy;
+  }
+  function ctrlAction(name, target){
+    if(duo.mode !== 'ctrl' || girls.length < 2) return;
+    const now = performance.now();
+    if(ctrl.duoAct) return;
+    if(name === 'ball'){ startDuo('ball', now); return; }
+    if(name === 'spin' && ctrl.who === 'both'){ startDuo('spin', now); return; }
+    const taken = new Set();
+    for(const g of girls){
+      if(!isSelected(g) || g.act) continue;
+      startGirlAct(g, name, now, target, taken);
+    }
+  }
+  function startGirlAct(g, name, now, target, taken){
+    const dur = { dance: 3200, jump: 1100, spin: 1500, clap: 1800, wave: 2200, laugh: 1900, peek: 2600 }[name];
+    if(name === 'hide'){
+      let best = null, bd = 700;
+      for(const s of hideSpots){ if(taken.has(s)) continue; const d = Math.hypot(s.x - g.x, s.y - g.y); if(d < bd){ bd = d; best = s; } }
+      if(best){ taken.add(best); g.tx = best.x; g.ty = best.y; g.act = { name: 'hide', phase: 'go', t0: now }; }
+      else g.act = { name: 'peek', t0: now, dur: dur || 2600 };
+      return;
+    }
+    if(name === 'visit'){
+      const an = animals.find(a => String(a.uid) === String(target));
+      if(an) g.act = { name: 'visit', phase: 'go', t0: now, an, aimAt: 0 };
+      return;
+    }
+    if(dur) g.act = { name, t0: now, dur };
+  }
+  function startDuo(name, now){
+    const [A, B] = girls;
+    for(const g of girls) resetGirl(g);
+    const mid = nearestInPoly((A.x + B.x)/2, (A.y + B.y)/2), wA = A.meta.width * girlScale(A);
+    const gap = name === 'ball' ? Math.min(Math.max(Math.abs(A.x - B.x), wA*2.2), wA*3) : wA*0.95;
+    const left = A.x <= B.x ? A : B, right = left === A ? B : A;
+    left.tx = mid[0] - gap/2; left.ty = mid[1]; right.tx = mid[0] + gap/2; right.ty = mid[1];
+    ctrl.duoAct = { name, phase: 'gather', tg: now, t0: now, cx: mid[0], cy: mid[1], R: gap/2, left };
+    duo.lastClap = -1;
+  }
+  function updateDuo(dt, now){
+    const d = ctrl.duoAct, [A, B] = girls;
+    if(d.phase === 'gather'){
+      const a = walkTo(A, dt, 160), b = walkTo(B, dt, 160);
+      for(const g of girls){ if(Math.hypot(g.tx - g.x, g.ty - g.y) > 3) walkPose(g); else idlePose(g); }
+      if((a && b) || now - d.tg > 6000){ d.phase = 'go'; d.t0 = now; if(d.name === 'spin') girlSound('giggle', d.cx, 0.8); }
+      return;
+    }
+    const t = (now - d.t0)/1000;
+    let len = 4.5;
+    if(d.name === 'ball') ballStep(t, A, B);
+    else {
+      len = 4;
+      const L = d.left, Rg = L === A ? B : A;
+      const e = clamp(t/len, 0, 1), th = Math.PI*2*1.5*(e*e*(3-2*e));
+      L.x = d.cx - Math.cos(th)*d.R; L.y = d.cy - Math.sin(th)*d.R*0.3;
+      Rg.x = d.cx + Math.cos(th)*d.R; Rg.y = d.cy + Math.sin(th)*d.R*0.3;
+      for(const g of girls){
+        idlePose(g);
+        const other = g === A ? B : A, right = other.x > g.x;
+        g.pose.armL = right ? 25*DEG : 80*DEG; g.pose.armR = right ? -80*DEG : -25*DEG;
+        g.rot = (right ? -1 : 1) * 0.08; g.phase += dt*3; const w = Math.sin(g.phase*4); g.pose.legL = w*8*DEG; g.pose.legR = -w*8*DEG;
+      }
+    }
+    if(t > len){ ctrl.duoAct = null; duo.ball = null; for(const g of girls){ g.tx = g.x; g.ty = g.y; } }
+  }
+  function updateControl(dt, now){
+    if(ctrl.duoAct){ updateDuo(dt, now); return; }
+    const v = now - ctrl.vecAt < 700 ? ctrl.vec : { x: 0, y: 0 }, m = Math.min(1, Math.hypot(v.x, v.y));
+    for(const g of girls){
+      if(g.act){ runAct(g, dt, now); continue; }
+      g.sx = 1; g.sink = 0;
+      if(isSelected(g) && m > 0.05){
+        const sp = 210 * depthScale(g.y) * m, ux = v.x/Math.hypot(v.x, v.y), uy = v.y/Math.hypot(v.x, v.y);
+        const dx = ux*sp*dt, dy = uy*sp*dt*0.65;
+        moveInside(g, dx, dy);
+        g.phase += Math.hypot(dx, dy) / (14 * g.s * 6);
+        walkPose(g);
+      } else idlePose(g);
+    }
+  }
+  function runAct(g, dt, now){
+    const a = g.act, t = (now - a.t0)/1000, p = a.dur ? clamp((now - a.t0)/a.dur, 0, 1) : 0, S = g.s*2.4;
+    switch(a.name){
+      case 'dance': {
+        const w = Math.sin(t*Math.PI*2.6);
+        g.pose.armL = (90 + w*60)*DEG; g.pose.armR = (-90 + w*60)*DEG; g.pose.legL = w*10*DEG; g.pose.legR = w*10*DEG;
+        g.rot = w*0.08; g.bob = -Math.abs(Math.sin(t*Math.PI*2.6))*14*S; g.pose.head = w*6*DEG; g.sx = 1;
+        if(!a.s1){ a.s1 = true; girlSound('giggle', g.x, 0.6); }
+        break;
+      }
+      case 'jump': {
+        idlePose(g); g.rot = 0; let b = 0, arms = 20, leg = 0;
+        if(p < 0.2) b = Math.sin(p/0.2*Math.PI/2)*10*S;
+        else if(p < 0.85){ const q = (p - 0.2)/0.65; b = -Math.sin(q*Math.PI)*95*S; arms = 150; leg = 8; }
+        else b = Math.sin((p - 0.85)/0.15*Math.PI)*6*S;
+        g.bob = b; g.pose.armL = arms*DEG; g.pose.armR = -arms*DEG; g.pose.legL = leg*DEG; g.pose.legR = -leg*DEG;
+        if(!a.s1 && p > 0.2){ a.s1 = true; girlSound('giggle', g.x, 0.6); }
+        if(!a.s2 && p > 0.85){ a.s2 = true; thump(0.3); }
+        break;
+      }
+      case 'spin': {
+        idlePose(g);
+        const e = p*p*(3 - 2*p), c = Math.cos(e*2*Math.PI*2);
+        g.sx = (c < 0 ? -1 : 1) * Math.max(0.08, Math.abs(c));
+        g.pose.armL = 60*DEG; g.pose.armR = -60*DEG; g.bob = -Math.sin(p*Math.PI)*10*S;
+        if(!a.s1){ a.s1 = true; girlSound('giggle', g.x, 0.7); }
+        break;
+      }
+      case 'clap': {
+        idlePose(g); g.rot = 0;
+        const c = (t % 0.45)/0.45, k = Math.floor(t/0.45), closed = Math.sin(c*Math.PI);
+        g.pose.armL = (10 - closed*42)*DEG; g.pose.armR = (-10 + closed*42)*DEG;
+        if(c > 0.45 && a.k !== k && k < 4){ a.k = k; girlSound('clap', g.x, 1); }
+        break;
+      }
+      case 'wave': {
+        idlePose(g); const w = Math.sin(t*11);
+        g.pose.armR = (-150 + w*22)*DEG; g.pose.head = 5*DEG;
+        if(!a.s1){ a.s1 = true; girlSound('giggle', g.x, 0.7); }
+        break;
+      }
+      case 'laugh': {
+        idlePose(g); const h = Math.abs(Math.sin(t*Math.PI*2.4));
+        g.bob = -h*18*g.s*2; g.pose.armL = (30 + 40*h)*DEG; g.pose.armR = (-30 - 40*h)*DEG; g.rot = Math.sin(t*9)*0.04;
+        if(!a.s1){ a.s1 = true; girlSound('laugh', g.x, 0.9); }
+        break;
+      }
+      case 'peek': {
+        // no bush nearby: crouch with hands over the head, then pop up laughing
+        idlePose(g); g.rot = 0;
+        if(p < 0.55){ const q = Math.min(1, p/0.12); g.bob = q*22*S; g.pose.armL = 160*DEG*q; g.pose.armR = -160*DEG*q; g.pose.head = 0; }
+        else { const q = (p - 0.55)/0.45; g.bob = -Math.sin(Math.min(1, q*2)*Math.PI)*40*S; g.pose.armL = (160 - 120*Math.min(1, q*3))*DEG; g.pose.armR = -g.pose.armL;
+          if(!a.s1){ a.s1 = true; girlSound('laugh', g.x, 0.9); } }
+        break;
+      }
+      case 'hide': {
+        if(a.phase === 'go'){
+          if(walkTo(g, dt, 175) || now - a.t0 > 5000){ a.phase = 'down'; a.t1 = now; idlePose(g); }
+          else walkPose(g);
+          break;
+        }
+        idlePose(g); g.rot = 0;
+        const u = (now - a.t1)/1000;
+        if(u < 0.45) g.sink = u/0.45*0.86;
+        else if(u < 1.9) g.sink = 0.86;
+        else if(u < 2.4) g.sink = 0.86 - (u - 1.9)/0.5*0.3;
+        else if(u < 3.6){ g.sink = 0.56; g.pose.head = Math.sin(u*8)*6*DEG; if(!a.s1){ a.s1 = true; girlSound('laugh', g.x, 0.9); } }
+        else if(u < 4.0) g.sink = 0.56*(1 - (u - 3.6)/0.4);
+        else { g.sink = 0; g.act = null; }
+        return;
+      }
+      case 'visit': {
+        const an = a.an;
+        if(!animals.includes(an)){ g.act = null; idlePose(g); return; }
+        if(a.phase === 'go'){
+          if(now > a.aimAt){
+            a.aimAt = now + 400;
+            const ground = (!an.def.flyer || an.ground) && an.mode !== 'air' && an.mode !== 'fly';
+            let tx, ty;
+            const both = ctrl.who === 'both', extra = both && g.idx === 1 ? g.meta.width*girlScale(g)*1.15 : 0;
+            if(ground){
+              if(a.side === undefined) a.side = g.x < an.x ? -1 : 1;
+              const half = Math.min(an.def.size[0], an.def.height*1.5)*0.42*an.s;
+              tx = an.x + a.side*(half + 60*depthScale(an.y) + extra); ty = an.y;
+            } else { tx = an.x + (both ? (g.idx ? 1 : -1)*g.meta.width*girlScale(g)*0.6 : 0); ty = Math.max(an.y + 240, polyInfo().yMin + 30); }
+            [g.tx, g.ty] = nearestInPoly(tx, ty);
+            if(!an.def.flyer && an.mode === 'walk' && Math.hypot(g.x - an.x, g.y - an.y) < 450){ an.mode = 'idle'; an.idleUntil = now + 5000; }
+          }
+          if(walkTo(g, dt, 165) || now - a.t0 > 9000){
+            a.phase = 'wave'; a.t1 = now;
+            if(!an.greetedAt || now - an.greetedAt > 1500){ an.greetedAt = now; animalRespond(an, now); }
+            if(!an.def.flyer && an.beh !== 'hopper' && (an.mode === 'walk' || an.mode === 'idle')){ an.mode = 'idle'; an.idleUntil = Math.max(an.idleUntil || 0, now + 3500); }
+            girlSound('giggle', g.x, 0.7);
+          }
+          else walkPose(g);
+          return;
+        }
+        const u = (now - a.t1)/1000, w = Math.sin(u*11);
+        idlePose(g);
+        if(an.x >= g.x) g.pose.armR = (-150 + w*22)*DEG; else g.pose.armL = (150 + w*22)*DEG;
+        if(u > 2.4) g.act = null;
+        return;
+      }
+    }
+    if(a.dur && now - a.t0 >= a.dur){ g.act = null; g.sx = 1; g.bob = 0; }
+  }
+  /* an animal answers a girl that came to say hello */
+  function animalRespond(an, now){
+    soundBusyUntil = 0;
+    switch(an.kind){
+      case 'elephant': case 'tiger': case 'snake': case 'frog':
+        if(an.mode !== 'air' && an.mode !== 'hop'){ an.act = null; trySpecial(an, now); }
+        break;
+      case 'turtle': an.act = { type: 'hide', start: now, end: now + 3500 }; break;
+      case 'chameleon': if(an.mode === 'walk' || an.mode === 'idle'){ an.mode = 'look'; an.seqStart = now; } break;
+      case 'butterfly': animalSound('butterfly', an.x); if(an.mode === 'rest') an.restUntil = now; break;
+      default: if(an.def.flyer && an.mode !== 'fly') startAct(an, 'call', 900, pick(an.def.sounds));
+    }
+  }
+
+  /* ---------- during a video the girls stand on both sides of it ---------- */
+  function girlsToVideo(){
+    if(girls.length < 2) return;
+    const R = VIDEO_RECT, [A, B] = girls;
+    for(const g of girls) resetGirl(g);
+    const wA = A.meta.width * cfg.girlSize * A.ratio / A.meta.height, wB = B.meta.width * cfg.girlSize * B.ratio / B.meta.height;
+    A.tx = R.x - 26 - wA*0.62; A.ty = R.y + R.h + 70;
+    B.tx = R.x + R.w + 26 + wB*0.62; B.ty = R.y + R.h + 70;
+    ctrl.duoAct = null; duo.ball = null; duo.mode = 'tovideo'; duo.nextFun = performance.now() + rand(9000, 16000);
+  }
+  function updateVideoGirls(dt, now){
+    const [A, B] = girls;
+    if(duo.mode === 'tovideo'){
+      const a = walkTo(A, dt, 150), b = walkTo(B, dt, 150);
+      for(const g of girls){ if(Math.hypot(g.tx - g.x, g.ty - g.y) > 3) walkPose(g); else idlePose(g); }
+      if(a && b) duo.mode = 'video';
+      return;
+    }
+    for(const g of girls){ idlePose(g); g.rot *= 0.5; }
+    if(now > duo.nextFun){
+      duo.nextFun = now + rand(12000, 22000);
+      const g = pick(girls);
+      g.act = Math.random() < 0.6 ? { name: 'clapsoft', t0: now, dur: 1800 } : { name: 'bounce', t0: now, dur: 1400 };
+    }
+    for(const g of girls){
+      const a = g.act; if(!a) continue;
+      const t = (now - a.t0)/1000;
+      if(a.name === 'clapsoft'){
+        const c = (t % 0.45)/0.45, k = Math.floor(t/0.45), closed = Math.sin(c*Math.PI);
+        g.pose.armL = (10 - closed*42)*DEG; g.pose.armR = (-10 + closed*42)*DEG;
+        if(c > 0.45 && a.k !== k && k < 4){ a.k = k; girlSound('clap', g.x, 0.35); }
+      } else if(a.name === 'bounce'){
+        const h = Math.abs(Math.sin(t*Math.PI*2.4)); g.bob = -h*12*g.s*2; g.pose.armL = (30 + 30*h)*DEG; g.pose.armR = (-30 - 30*h)*DEG;
+      }
+      if(now - a.t0 > a.dur){ g.act = null; g.bob = 0; }
+    }
+  }
+
+  function drawGirl(g){
+    ctx.save();
+    ctx.fillStyle = `rgba(0,0,0,${(0.18*(1 - g.sink)).toFixed(3)})`;
+    ctx.beginPath(); ctx.ellipse(g.x, g.y + 3, g.meta.width*0.42*g.s*Math.max(0.3, Math.abs(g.sx)), 10*g.s*2.4, 0, 0, Math.PI*2); ctx.fill();
+    if(g.sink > 0){ ctx.beginPath(); ctx.rect(g.x - 600, g.y - 3000, 1200, 3000 + 4); ctx.clip(); }
+    ctx.translate(g.x, g.y + g.bob + g.sink*g.meta.height*g.s);
+    ctx.rotate(g.rot);
+    ctx.scale(g.s*g.sx, g.s);
+    ctx.translate(-g.meta.anchor[0], -g.meta.anchor[1]);
+    const pose = { armL: { r: g.pose.armL }, armR: { r: g.pose.armR }, legL: { r: g.pose.legL }, legR: { r: g.pose.legR }, head: { r: g.pose.head } };
+    Figure.drawBaked(ctx, g.def, g.baked, pose);
+    ctx.restore();
+  }
+  function drawBall(b){
+    ctx.save();
+    ctx.shadowColor = 'rgba(20,15,5,.35)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 4;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 5, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.spin);
+    const cols = ['#E2342B','#FBD130','#2457C5','#2E8B3E'];
+    for(let i=0;i<4;i++){ ctx.fillStyle = cols[i]; ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,b.r, i*Math.PI/2, (i+1)*Math.PI/2); ctx.closePath(); ctx.fill(); }
+    ctx.strokeStyle = '#1B1F1A'; ctx.lineWidth = Math.max(2, b.r*0.15); ctx.beginPath(); ctx.arc(0,0,b.r,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ---------- rain every 15 minutes ---------- */
+  const RAIN_EVERY = 15*60*1000, RAIN_LEN = 90000;
+  function startRain(now){ if(rain.active) return; rain.active = true; rain.t0 = now; rain.next = now + RAIN_EVERY; }
+  function newDrop(initial){
+    return { x: rand(-260, W + 40), y: initial ? rand(-H, H) : rand(-160, -20), v: rand(1150, 1550), len: rand(24, 42), end: rand(560, H + 20), a: rand(0.22, 0.5), w: rand(1.2, 2.4) };
+  }
+  function updateRain(dt, now){
+    if(!rain.active && rain.next && now > rain.next) startRain(now);
+    if(rain.active){
+      const u = (now - rain.t0)/RAIN_LEN;
+      rain.k = u < 0.17 ? u/0.17 : u > 0.83 ? Math.max(0, (1 - u)/0.17) : 1;
+      if(u >= 1){ rain.active = false; rain.k = 0; }
+    }
+    const want = Math.round(460 * rain.k);
+    const P = polyInfo().p;
+    for(let i = rain.drops.length - 1; i >= 0; i--){
+      const d = rain.drops[i];
+      d.y += d.v*dt; d.x += d.v*0.17*dt;
+      if(d.y > d.end){
+        if(Math.random() < 0.35 && inPoly(d.x, d.end, P)) rain.rings.push({ x: d.x, y: d.end, age: 0, life: rand(0.35, 0.6), r: rand(6, 12) * depthScale(d.end) });
+        if(rain.drops.length > want) rain.drops.splice(i, 1); else rain.drops[i] = newDrop(false);
+      }
+    }
+    while(rain.drops.length < want) rain.drops.push(newDrop(rain.drops.length < want*0.5 && rain.k > 0.9));
+    for(const r of rain.rings) r.age += dt;
+    rain.rings = rain.rings.filter(r => r.age < r.life);
+  }
+  function drawRain(){
+    if(rain.k <= 0 && !rain.drops.length && !rain.rings.length) return;
+    ctx.save();
+    if(rain.k > 0){ ctx.fillStyle = `rgba(8,16,34,${(0.32*rain.k).toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
+    ctx.strokeStyle = 'rgba(205,222,255,1)'; ctx.lineCap = 'round';
+    for(const band of [[0.22, 0.32, 1.3], [0.32, 0.42, 1.7], [0.42, 0.6, 2.2]]){
+      ctx.globalAlpha = (band[0] + band[1])/2; ctx.lineWidth = band[2]; ctx.beginPath();
+      for(const d of rain.drops){ if(d.a < band[0] || d.a >= band[1]) continue; ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.len*0.17, d.y - d.len); }
+      ctx.stroke();
+    }
+    ctx.lineWidth = 1.4;
+    for(const r of rain.rings){
+      const q = r.age/r.life; ctx.globalAlpha = 0.45*(1 - q);
+      ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r*(0.4 + q*1.6), r.r*(0.4 + q*1.6)*0.32, 0, 0, Math.PI*2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /* ---------- videos in the middle of the forest ---------- */
+  const VIDEO_RECT = { x: 480, y: 238, w: 960, h: 540 };
+  function startVideo(file){
+    if(video.el) killVideo();
+    initAudio();
+    const el = document.createElement('video');
+    el.preload = 'auto'; el.playsInline = true; el.src = 'media/videos/' + encodeURIComponent(file);
+    if(ac){ try { const src = ac.createMediaElementSource(el), g = ac.createGain(); g.gain.value = 1; src.connect(g).connect(master); } catch(_) {} }
+    el.addEventListener('ended', () => stopVideo(true));
+    el.addEventListener('error', () => stopVideo(true));
+    el.play().catch(() => { el.muted = true; el.play().catch(() => stopVideo(true)); });
+    video.el = el; video.file = file; video.active = true; video.fading = false;
+    setAmbienceLevel();
+    if(duo.mode === 'ctrl' || autoMode() || duo.mode === 'shelter' || duo.mode === 'video' || duo.mode === 'tovideo') girlsToVideo();
+  }
+  function stopVideo(natural){
+    if(!video.active) return;
+    video.active = false; video.fading = true;
+    if(natural) fetch('/api/video/ended', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {});
+    if(duo.mode === 'tovideo' || duo.mode === 'video') sendHome();
+    setAmbienceLevel();
+  }
+  function killVideo(){
+    const el = video.el; if(!el) return;
+    try { el.pause(); el.removeAttribute('src'); el.load(); } catch(_) {}
+    video.el = null; video.alpha = 0; video.fading = false;
+  }
+  function updateVideo(dt){
+    if(video.active) video.alpha = Math.min(1, video.alpha + dt/0.6);
+    else if(video.fading){
+      video.alpha = Math.max(0, video.alpha - dt/0.5);
+      if(video.alpha <= 0){ killVideo(); releaseHeld(); }
+    }
+  }
+  function roundRectPath(x, y, w, h, r){
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function drawVideo(){
+    const el = video.el; if(!el || video.alpha <= 0) return;
+    const R = VIDEO_RECT, e = video.alpha, k = 0.9 + 0.1*(1 - Math.pow(1 - e, 3)), cx = R.x + R.w/2, cy = R.y + R.h/2;
+    ctx.save();
+    ctx.globalAlpha = e;
+    ctx.translate(cx, cy); ctx.scale(k, k); ctx.translate(-cx, -cy);
+    ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 34; ctx.shadowOffsetY = 14;
+    ctx.fillStyle = '#FFFDF8'; roundRectPath(R.x - 16, R.y - 16, R.w + 32, R.h + 32, 20); ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.fillStyle = '#0B0F0C'; ctx.fillRect(R.x, R.y, R.w, R.h);
+    if(el.readyState >= 2 && el.videoWidth){
+      const s = Math.min(R.w/el.videoWidth, R.h/el.videoHeight), vw = el.videoWidth*s, vh = el.videoHeight*s;
+      ctx.drawImage(el, R.x + (R.w - vw)/2, R.y + (R.h - vh)/2, vw, vh);
+    }
+    ctx.restore();
+  }
+
+  /* ---------- draw ---------- */
+  function poseOf(a){
+    const def = a.def;
+    let mode = a.mode;
+    if(def.flyer) mode = a.mode === 'fly' ? 'fly' : (a.beh === 'monkey' ? 'hang' : 'perch');
+    else if(a.beh === 'hopper') mode = a.mode === 'hop' || a.mode === 'air' ? 'hop' : 'sit';
+    else if(mode !== 'walk' && mode !== 'air') mode = 'idle';
+    const st = { mode, phase: a.phase, time: a.time, seed: a.seed, look: a.look, tongue: a.tongue, call: 0 };
+    if(a.act){
+      const p = actProgress(a);
+      if(a.act.type === 'call') st.call = bell(p, 0.15, 0.25);
+      else if(a.act.type === 'yawn'){ st.yawn = bell(p, 0.35, 0.35); st.crouch = bell(p, 0.2, 0.2); }
+      else if(a.act.type === 'hide') st.hide = bell(p, 0.12, 0.2);
+      else if(a.act.type === 'croak') st.call = Math.abs(Math.sin(p*Math.PI*3));
+      else if(a.act.type === 'hiss'){ st.call = bell(p, 0.15, 0.2); st.tongue = Math.max(0, Math.sin(p*Math.PI*6)); }
+    }
+    if(a.kind === 'snake' && !st.tongue){ st.tongue = 0; }
+    return def.pose(st);
+  }
+
+  function drawAnimal(a){
+    const def = a.def, pose = poseOf(a), sq = a.squash, sx = 1 + 0.07*sq, sy = 1 - 0.09*sq;
+    const onGround = (!def.flyer || a.ground) && !['air','lift','fly','hop'].includes(a.mode);
+    ctx.save();
+    if(onGround || a.mode === 'hop'){
+      const gy = a.mode === 'hop' ? a.hopGround : a.y;
+      ctx.fillStyle = 'rgba(0,0,0,.18)';
+      ctx.beginPath(); ctx.ellipse(a.x, gy + 3, Math.min(def.size[0], def.height*1.5)*0.42*a.s, 9*a.s, 0, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.translate(a.x, a.y);
+    ctx.rotate(a.rot);
+    ctx.scale(a.s*a.dir*sx, a.s*sy);
+    ctx.translate(-def.anchor[0], -def.anchor[1]);
+    Figure.drawBaked(ctx, def, a.baked, pose);
+    ctx.restore();
+    if(a.photo && a.mode !== 'lift') drawBadge(a);
+  }
+
+  function drawBadge(a){
+    const def = a.def, [ax, ay] = def.anchor, [bx, by] = def.badge;
+    const lx = (bx - ax)*a.s*a.dir, ly = (by - ay)*a.s, c = Math.cos(a.rot), s = Math.sin(a.rot);
+    const x = a.x + lx*c - ly*s, y = a.y + lx*s + ly*c + Math.sin(a.time*2.2 + a.seed)*3;
+    const r = clamp(def.badgeR * Math.max(a.s, 0.9), 22, 64);
+    ctx.save();
+    ctx.shadowColor = 'rgba(20,15,5,.38)'; ctx.shadowBlur = 10; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 4;
+    ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(x, y, r + 6, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip(); ctx.drawImage(a.photo, x - r, y - r, r*2, r*2); ctx.restore();
+    ctx.save(); ctx.strokeStyle = '#1B1F1A'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(x, y, r + 6, 0, Math.PI*2); ctx.stroke(); ctx.restore();
+  }
+
+  function draw(now){
+    const t = now/1000;
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.setTransform(sc,0,0,sc,0,0);
+    drawSky(t);
+    if(bgStatic) ctx.drawImage(bgStatic.can, bgStatic.x, bgStatic.y, bgStatic.w, bgStatic.h);
+
+    const girlsOnTop = video.alpha > 0 || duo.mode === 'tovideo' || duo.mode === 'video';
+    const items = els.map(e => ({ y: e.baseY, e }));
+    const top = [];
+    for(const a of animals){
+      const onGround = (!a.def.flyer || a.ground) && a.mode !== 'air' && a.mode !== 'lift' && !(a.def.flyer && a.mode === 'fly');
+      if(onGround) items.push({ y: a.mode === 'hop' ? a.hopGround : a.y, a, k: 1 });
+      else if(a.beh === 'butterfly' && a.mode === 'rest' && a.spot) items.push({ y: a.spot.el.baseY + 0.5, a, k: 2 });
+      else top.push(a);
+    }
+    if(!girlsOnTop) for(const g of girls) items.push({ y: g.y, g, k: 1 });
+    items.sort((p, q) => p.y - q.y || (p.k||0) - (q.k||0));
+    for(const it of items){ if(it.e) drawElement(it.e, t); else if(it.g) drawGirl(it.g); else drawAnimal(it.a); }
+    if(duo.ball && !girlsOnTop) drawBall(duo.ball);
+    for(const a of top) drawAnimal(a);
+
+    for(const p of parts){
+      const life = p.age/p.life, alpha = life < 0.6 ? 1 : 1 - (life-0.6)/0.4;
+      ctx.globalAlpha = Math.max(0, p.round ? alpha*0.55 : alpha);
+      ctx.fillStyle = p.col;
+      if(p.round){ ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill(); }
+      else { const len = p.size*(1.4 + Math.min(2.2, p.vx/400)); ctx.fillRect(p.x - len, p.y - p.size*0.35, len, p.size*0.7); }
+    }
+    ctx.globalAlpha = 1;
+    drawRain();
+    drawVideo();
+    if(girlsOnTop){ for(const g of girls.slice().sort((p, q) => p.y - q.y)) drawGirl(g); if(duo.ball) drawBall(duo.ball); }
+    if(!$('panel').hidden) drawGuides();
+  }
+
+  function drawGuides(){
+    ctx.save();
+    const P = cfg.walk;
+    if(P.length){
+      ctx.beginPath(); P.forEach(([x,y],i) => i ? ctx.lineTo(x,y) : ctx.moveTo(x,y)); if(P.length > 2) ctx.closePath();
+      ctx.fillStyle = 'rgba(255,200,61,.14)'; if(P.length > 2) ctx.fill();
+      ctx.strokeStyle = '#FFC83D'; ctx.lineWidth = 3; ctx.setLineDash([16,10]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#FFC83D'; for(const [x,y] of P){ ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2); ctx.fill(); }
+    }
+    ctx.font = 'bold 14px Segoe UI, Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    cfg.perches.forEach(([x,y],i) => {
+      ctx.fillStyle = '#36B5E8'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x,y,12,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.fillText(i+1, x, y+1);
+    });
+    cfg.girls.forEach(([x,y],i) => {
+      ctx.fillStyle = '#F06AA0'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x,y,14,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.fillText(i ? 'B' : 'A', x, y+1);
+    });
+    const ex = cfg.entryX*W;
+    ctx.fillStyle = '#FFC83D'; ctx.beginPath(); ctx.moveTo(ex-30,H-4); ctx.lineTo(ex+30,H-4); ctx.lineTo(ex,H-60); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  /* ---------- incoming drawings ---------- */
+  function loadImg(src){ return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+  async function receive(m){
+    try{
+      const img = await loadImg(m.image);
+      const photo = m.photo ? await loadImg(m.photo).catch(() => null) : null;
+      setTimeout(() => spawn(m.type, img, photo), cfg.delay);
+    }catch(_){}
+  }
+  function onPlay(m){
+    if(girls.length < 2) return;
+    if(m.cmd === 'start'){ if(duo.mode !== 'ctrl') startControl(m.who); else ctrl.who = m.who || ctrl.who; }
+    else if(m.cmd === 'who'){ if(duo.mode === 'ctrl') ctrl.who = m.who; }
+    else if(m.cmd === 'move'){ if(duo.mode === 'ctrl'){ ctrl.vec = { x: Number(m.x) || 0, y: Number(m.y) || 0 }; ctrl.vecAt = performance.now(); } }
+    else if(m.cmd === 'action') ctrlAction(m.name, m.target);
+    else if(m.cmd === 'end') endControl();
+  }
+  function connect(){
+    const es = new EventSource('/api/events');
+    es.onmessage = ev => {
+      let m; try { m = JSON.parse(ev.data); } catch(_) { return; }
+      if(m.kind === 'animal') receive(m);
+      else if(m.kind === 'play') onPlay(m);
+      else if(m.kind === 'video'){ if(m.cmd === 'play' && m.file) startVideo(m.file); else if(m.cmd === 'stop') stopVideo(false); }
+      else if(m.kind === 'phone') hideQR();
+    };
+    es.onerror = () => { es.close(); setTimeout(connect, 2000); };
+  }
+
+  /* ---------- start overlay ---------- */
+  let phoneUrl = null, phoneSeen = false, qrShown = false;
+  fetch('/api/info').then(r=>r.json()).then(i => { phoneUrl = i.phoneUrl || `http://${i.ip}:${i.port}/tablet.html`; phoneSeen = !!i.phoneSeen; $('phoneUrl').textContent = phoneUrl; }).catch(()=>{});
+  function showQR(){
+    if(qrShown || phoneSeen || !phoneUrl) return;
+    qrShown = true;
+    try { QR.draw($('qrCan'), phoneUrl, 640); $('qr').hidden = false; } catch(_) {}
+  }
+  function hideQR(){
+    phoneSeen = true;
+    const q = $('qr'); if(q.hidden) return;
+    q.classList.add('bye'); setTimeout(() => { q.hidden = true; }, 520);
+  }
+  $('overlay').addEventListener('click', () => {
+    $('overlay').hidden = true; initAudio(); showQR();
+    const d = document.documentElement; if(d.requestFullscreen) d.requestFullscreen().catch(()=>{});
+  });
+  if(window.JUNGLE_TV){
+    $('overlay').hidden = true; $('gear').hidden = true; initAudio();
+    const tryQR = () => { if(phoneUrl) showQR(); else setTimeout(tryQR, 300); }; tryQR();
+    const wake = () => { if(ac && ac.state === 'suspended') ac.resume().catch(()=>{}); };
+    addEventListener('keydown', wake); addEventListener('pointerdown', wake); setInterval(wake, 3000);
+  }
+
+  /* ---------- settings ---------- */
+  function syncUI(){
+    $('size').value = cfg.size; $('vSize').textContent = cfg.size + ' px';
+    $('girl').value = cfg.girlSize; $('vGirl').textContent = cfg.girlSize + ' px';
+    $('entry').value = Math.round(cfg.entryX*100); $('vEntry').textContent = Math.round(cfg.entryX*100) + '%';
+    $('delay').value = cfg.delay; $('vDelay').textContent = cfg.delay + ' ms';
+    $('amb').value = Math.round(cfg.ambience*100); $('vAmb').textContent = Math.round(cfg.ambience*100) + '%';
+  }
+  $('size').addEventListener('input', () => { cfg.size = Number($('size').value); syncUI(); });
+  $('girl').addEventListener('input', () => { cfg.girlSize = Number($('girl').value); syncUI(); });
+  $('entry').addEventListener('input', () => { cfg.entryX = Number($('entry').value)/100; syncUI(); });
+  $('delay').addEventListener('input', () => { cfg.delay = Number($('delay').value); syncUI(); });
+  $('amb').addEventListener('input', () => { cfg.ambience = Number($('amb').value)/100; syncUI(); setAmbienceLevel(); });
+
+  let editing = null, girlClicks = 0;
+  const HINTS = { walk: 'Click around the grass to draw the walking area, point by point.',
+    perch: 'Click on top of the branches where the birds and the monkey can stay.',
+    girls: 'Click where girl A rests, then where girl B rests.' };
+  function setEditing(mode){
+    editing = editing === mode ? null : mode;
+    $('editWalk').classList.toggle('active', editing === 'walk'); $('editWalk').textContent = editing === 'walk' ? 'Done' : 'Edit';
+    $('editPerch').classList.toggle('active', editing === 'perch'); $('editPerch').textContent = editing === 'perch' ? 'Done' : 'Edit';
+    $('editGirls').classList.toggle('active', editing === 'girls'); $('editGirls').textContent = editing === 'girls' ? 'Cancel' : 'Set places';
+    girlClicks = 0;
+    cv.classList.toggle('editing', !!editing);
+    $('hint').hidden = !editing; $('hint').textContent = editing ? HINTS[editing] : '';
+  }
+  $('editWalk').addEventListener('click', () => setEditing('walk'));
+  $('editPerch').addEventListener('click', () => setEditing('perch'));
+  $('editGirls').addEventListener('click', () => setEditing('girls'));
+  $('undoWalk').addEventListener('click', () => cfg.walk.pop());
+  $('clearWalk').addEventListener('click', () => { cfg.walk = []; if(editing !== 'walk') setEditing('walk'); });
+  $('undoPerch').addEventListener('click', () => cfg.perches.pop());
+  $('clearPerch').addEventListener('click', () => { cfg.perches = []; perchTaken.clear(); if(editing !== 'perch') setEditing('perch'); });
+  cv.addEventListener('click', e => {
+    if(!editing) return;
+    const r = cv.getBoundingClientRect();
+    const p = [Math.round((e.clientX - r.left)/r.width*W), Math.round((e.clientY - r.top)/r.height*H)];
+    if(editing === 'walk') cfg.walk.push(p);
+    else if(editing === 'perch') cfg.perches.push(p);
+    else if(editing === 'girls'){
+      cfg.girls[girlClicks] = p;
+      if(girls[girlClicks]){ girls[girlClicks].x = girls[girlClicks].tx = p[0]; girls[girlClicks].y = girls[girlClicks].ty = p[1]; }
+      girlClicks++;
+      if(girlClicks >= 2){ duo.mode = 'rest'; duo.until = performance.now() + 1500; setEditing('girls'); }
+    }
+  });
+  $('gear').addEventListener('click', () => { $('panel').hidden = !$('panel').hidden; if($('panel').hidden && editing) setEditing(editing); });
+  for(const id of ANIMAL_ORDER){
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = ANIMALS[id].name;
+    b.addEventListener('click', () => { initAudio(); spawn(id, Figure.randomLayer(ANIMALS[id]), null); });
+    $('testBtns').appendChild(b);
+  }
+  $('stormNow').addEventListener('click', () => { initAudio(); if(animals.length) startStorm(); });
+  $('nextGame').addEventListener('click', () => { initAudio(); if(girls.length === 2 && autoMode()){ startApproach(performance.now()); } });
+  $('rainNow').addEventListener('click', () => { if(rain.active) rain.t0 = Math.min(rain.t0, performance.now() - RAIN_LEN*0.83); else startRain(performance.now()); });
+  $('meteorNow').addEventListener('click', () => { nextMeteor = 0; meteor = null; });
+  $('save').addEventListener('click', () => {
+    fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)})
+      .then(r => r.ok ? ($('status').textContent = 'Saved') : Promise.reject())
+      .catch(() => { $('status').textContent = 'Not saved. Make sure the program window is still open.'; });
+  });
+
+  /* ---------- boot ---------- */
+  fetch('/api/config').then(r=>r.json()).catch(() => null).then(c => {
+    if(c && c.v === CFG_VERSION) Object.assign(cfg, c);
+    syncUI();
+    loadBackground().catch(() => { $('loading').textContent = 'Background not found: put background.svg in the media folder'; });
+    loadGirls().catch(() => {});
+    connect();
+    rain.next = performance.now() + RAIN_EVERY;
+    reportScene();
+    requestAnimationFrame(frame);
+  });
+
+  window.__jungle = { spawnTest: k => spawn(k||'elephant', Figure.randomLayer(ANIMALS[k||'elephant']), null),
+    storm: startStorm, count: () => animals.length, parts: () => parts.length, ready: () => bgReady && girls.length === 2,
+    animals: () => animals.map(a => ({k:a.kind, m:a.mode, act: a.act && a.act.type, x:Math.round(a.x), y:Math.round(a.y)})),
+    duo: () => ({ mode: duo.mode, game: duo.game, who: ctrl.who, girls: girls.map(g => ({ x: Math.round(g.x), y: Math.round(g.y), act: g.act && g.act.name, sink: +g.sink.toFixed(2) })) }),
+    game: g => startApproach(performance.now(), g), rain: () => startRain(performance.now()), rainK: () => rain.k,
+    stars: () => stars.length, meteors: () => meteorSprites.length, meteor: () => { nextMeteor = 0; meteor = null; },
+    play: m => onPlay(m), video: () => ({ active: video.active, alpha: video.alpha, held: held.length }), spots: () => ({ shelter: shelterSpots.length, hide: hideSpots.length }) };
+})();
+</script>
+</body>
+</html>

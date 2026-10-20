@@ -1,0 +1,20 @@
+{
+ "videos": [
+  {
+   "file": "alphabet-song.mp4",
+   "thumb": "alphabet-song.jpg"
+  },
+  {
+   "file": "arabic-letters.mp4",
+   "thumb": "arabic-letters.jpg"
+  },
+  {
+   "file": "five-little-ducks.mp4",
+   "thumb": "five-little-ducks.jpg"
+  },
+  {
+   "file": "laila-ya-laila.mp4",
+   "thumb": "laila-ya-laila.jpg"
+  }
+ ]
+}
