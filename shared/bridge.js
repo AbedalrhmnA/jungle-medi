@@ -379,7 +379,14 @@
   if(isPhone) startPhone();
   else{
     if(isReferee) startReferee(); else loadVideoNames();
-    if(window.parent !== window){ try{ window.parent.postMessage({ jungle: 'ready' }, '*'); }catch(e){} }
+    if(window.parent !== window){
+      try{ window.parent.postMessage({ jungle: 'ready' }, '*'); }catch(e){}
+      // inside the projector app: let the app see the remote control keys (Back opens its menu)
+      window.addEventListener('keydown', function(e){
+        if(e.keyCode === 10009 || e.keyCode === 27) e.preventDefault();
+        try{ window.parent.postMessage({ jungle: 'key', keyCode: e.keyCode }, '*'); }catch(_){}
+      });
+    }
     window.addEventListener('message', function(e){ if(e.data && e.data.jungle === 'ping' && e.source){ try{ e.source.postMessage({ jungle: 'pong' }, '*'); }catch(_){} } });
     setupOfflineFiles();
   }
